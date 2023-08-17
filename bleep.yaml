@@ -29,6 +29,13 @@ templates:
     platform:
       name: jvm
     scala:
-      options: -encoding utf8 -feature -unchecked -Xsource:3
+      options: -encoding utf8 -feature -unchecked
       strict: true
-      version: 2.13.11
+    cross:
+      scala2:
+        scala:
+          version: 2.13.11
+          options: -Xsource:3
+      scala3:
+        scala:
+          version: 3.3.0
