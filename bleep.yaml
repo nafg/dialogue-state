@@ -23,6 +23,12 @@ scripts:
     project: scripts
 templates:
   template-common:
+    platform:
+      name: jvm
+    scala:
+      options: -encoding utf8 -feature -unchecked
+      strict: true
+  template-cross:
     cross:
       scala2:
         scala:
@@ -31,10 +37,4 @@ templates:
       scala3:
         scala:
           version: 3.3.0
-    platform:
-      name: jvm
-    scala:
-      options: -encoding utf8 -feature -unchecked
-      strict: true
-  template-cross:
     extends: template-common
