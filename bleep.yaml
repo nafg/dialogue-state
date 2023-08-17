@@ -5,16 +5,18 @@ jvm:
 projects:
   core:
     dependencies: dev.zio::zio-http:3.0.0-RC2
-    extends: template-common
+    extends: template-cross
   scripts:
     dependencies: build.bleep::bleep-plugin-ci-release:${BLEEP_VERSION}
     extends: template-common
+    scala:
+      version: 3.3.0
   twilio:
     dependencies:
     - com.lihaoyi::scalatags:0.12.0
     - com.twilio.sdk:twilio:9.6.2
     dependsOn: core
-    extends: template-common
+    extends: template-cross
 scripts:
   publish:
     main: scripts.Publish
@@ -34,3 +36,5 @@ templates:
     scala:
       options: -encoding utf8 -feature -unchecked
       strict: true
+  template-cross:
+    extends: template-common
