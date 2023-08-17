@@ -5,6 +5,7 @@ import scala.util.Random
 import io.github.nafg.dialoguestate.CallInfo
 import io.github.nafg.dialoguestate.twilio.TagsBundle.*
 
+import scalatags.Text.TypedTag
 import zio.Chunk
 import zio.http.{QueryParams, URL}
 
@@ -12,14 +13,13 @@ sealed trait Twiml {
   private[twilio] def toTwimlTag: Frag
   private[twilio] def toHtml(callInfo: CallInfo): Frag
 }
-
-object Twiml {
+object Twiml       {
   private object twiml {
-    val Say      = tag("Say")
-    val Pause    = tag("Pause")
-    val Gather   = tag("Gather")
-    val Redirect = tag("Redirect")
-    val Response = tag("Response")
+    val Say      = TypedTag[String]("Say", modifiers = Nil, void = false)
+    val Pause    = TypedTag[String]("Pause", modifiers = Nil, void = true)
+    val Gather   = TypedTag[String]("Gather", modifiers = Nil, void = false)
+    val Redirect = TypedTag[String]("Redirect", modifiers = Nil, void = false)
+    val Response = TypedTag[String]("Response", modifiers = Nil, void = false)
 
     val length              = attr("length")
     val finishOnKey         = attr("finishOnKey")
