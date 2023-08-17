@@ -1,41 +1,36 @@
 $schema: https://raw.githubusercontent.com/oyvindberg/bleep/master/schema.json
 $version: 0.0.2
-
 jvm:
   name: graalvm-java17:22.3.1
-
 projects:
   core:
-    extends: template-common
     dependencies: dev.zio::zio-http:3.0.0-RC2
-  twilio:
     extends: template-common
-    dependsOn: core
-    dependencies:
-      - com.twilio.sdk:twilio:9.6.2
-      - com.lihaoyi::scalatags:0.12.0
   scripts:
+    dependencies: build.bleep::bleep-plugin-ci-release:${BLEEP_VERSION}
     extends: template-common
+  twilio:
     dependencies:
-      - build.bleep::bleep-plugin-ci-release:${BLEEP_VERSION}
-
+    - com.lihaoyi::scalatags:0.12.0
+    - com.twilio.sdk:twilio:9.6.2
+    dependsOn: core
+    extends: template-common
 scripts:
   publish:
-    project: scripts
     main: scripts.Publish
-
+    project: scripts
 templates:
   template-common:
+    cross:
+      scala2:
+        scala:
+          options: -Xsource:3
+          version: 2.13.11
+      scala3:
+        scala:
+          version: 3.3.0
     platform:
       name: jvm
     scala:
       options: -encoding utf8 -feature -unchecked
       strict: true
-    cross:
-      scala2:
-        scala:
-          version: 2.13.11
-          options: -Xsource:3
-      scala3:
-        scala:
-          version: 3.3.0
