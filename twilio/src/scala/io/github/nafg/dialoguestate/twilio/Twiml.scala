@@ -15,15 +15,19 @@ sealed trait Twiml {
 }
 object Twiml       {
   private object twiml {
-    val Say      = TypedTag[String]("Say", modifiers = Nil, void = false)
-    val Pause    = TypedTag[String]("Pause", modifiers = Nil, void = true)
-    val Gather   = TypedTag[String]("Gather", modifiers = Nil, void = false)
-    val Redirect = TypedTag[String]("Redirect", modifiers = Nil, void = false)
-    val Response = TypedTag[String]("Response", modifiers = Nil, void = false)
+    val Say = TypedTag[String]("Say", modifiers = Nil, void = false)
 
-    val length              = attr("length")
+    val Pause  = TypedTag[String]("Pause", modifiers = Nil, void = true)
+    val length = attr("length")
+
+    val Gather              = TypedTag[String]("Gather", modifiers = Nil, void = false)
     val finishOnKey         = attr("finishOnKey")
     val actionOnEmptyResult = attr("actionOnEmptyResult")
+    val timeout             = attr("timeout")
+
+    val Redirect = TypedTag[String]("Redirect", modifiers = Nil, void = false)
+
+    val Response = TypedTag[String]("Response", modifiers = Nil, void = false)
   }
 
   private def callParams(callInfo: CallInfo) =
@@ -45,9 +49,11 @@ object Twiml       {
     children: Gather.Child*
   ) extends Twiml {
     override private[twilio] def toTwimlTag                 =
-      twiml.Gather(twiml.finishOnKey := finishOnKey, twiml.actionOnEmptyResult := actionOnEmptyResult)(
-        children.map(_.toTwimlTag)*
-      )
+      twiml.Gather(
+        twiml.finishOnKey         := finishOnKey,
+        twiml.actionOnEmptyResult := actionOnEmptyResult,
+        twiml.timeout             := timeout
+      )(children.map(_.toTwimlTag)*)
     override private[twilio] def toHtml(callInfo: CallInfo) = {
       def childTags(children: List[Gather.Child]): List[Tag] = children match {
         case Nil                                                              => Nil
