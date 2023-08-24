@@ -11,6 +11,12 @@ projects:
     extends: template-common
     scala:
       version: 3.3.0
+  telnyx:
+    dependencies:
+    - com.lihaoyi::scalatags:0.12.0
+    - dev.zio::zio-json:0.6.1
+    dependsOn: core
+    extends: template-cross
   twilio:
     dependencies:
     - com.lihaoyi::scalatags:0.12.0
