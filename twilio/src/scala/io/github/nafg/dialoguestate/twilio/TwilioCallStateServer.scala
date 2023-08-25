@@ -66,7 +66,7 @@ class TwilioCallStateServer(
     Result(List(Twiml.Say(message), Twiml.Redirect(baseUrl)))
 
   protected case class Result(twiml: List[Twiml], nextCallState: Option[CallState] = None) {
-    def ++(that: Result) = Result(this.twiml ++ that.twiml, that.nextCallState)
+    def concat(that: Result) = Result(this.twiml ++ that.twiml, that.nextCallState)
   }
 
   private def toTwiml(noInput: CallTree.NoInput): List[Twiml.Gather.Child] = noInput match {
@@ -85,18 +85,26 @@ class TwilioCallStateServer(
         )
       case sequence: CallTree.Sequence.WithGather                              =>
         sequence.elems.foldLeft(Result(Nil)) { case (result, tree) =>
-          result ++ interpretTree(tree)
+          result concat interpretTree(tree)
         }
     }
 
   protected def callInfoLayer(request: Request): TaskLayer[CallInfo] =
     ZLayer.fromZIO {
-      request.allParams.map { params =>
-        CallInfo(
-          callId = params.get("CallSid").flatMap(_.lastOption),
-          callerId = params.get("From").flatMap(_.lastOption),
-          digits = params.get("Digits").flatMap(_.lastOption)
-        )
+      request.allParams.flatMap { params =>
+        params.get("CallSid").flatMap(_.lastOption) match {
+          case None         =>
+            ZIO.log(params.map.mkString("Request parameters: [", ", ", "]")) *>
+              ZIO.fail(new Exception("CallSid not found"))
+          case Some(callId) =>
+            ZIO.succeed(
+              CallInfo(
+                callId = callId,
+                callerId = params.get("From").flatMap(_.lastOption),
+                digits = params.get("Digits").flatMap(_.lastOption)
+              )
+            )
+        }
       }
     }
 }

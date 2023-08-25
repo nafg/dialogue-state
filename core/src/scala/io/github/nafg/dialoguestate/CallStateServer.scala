@@ -47,8 +47,8 @@ abstract class CallStateServer(rootUrl: Path, mainCallTree: CallTree.Callback) {
         Http.collectZIO[Request] { case request @ _ -> baseUrl.path =>
           ZIO
             .serviceWithZIO[CallInfo] { callInfo =>
+              val callId = callInfo.callId
               (for {
-                callId    <- ZIO.getOrFailWith(Right(new RuntimeException("Call has no ID")))(callInfo.callId)
                 callState <- callStateMap.ref.get
                                .map(_.get(callId))
                                .someOrElseZIO(mainCallTree.map(CallState.Tree(_): CallState))

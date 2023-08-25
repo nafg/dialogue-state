@@ -3,7 +3,7 @@ package io.github.nafg.dialoguestate.telnyx
 import io.github.nafg.dialoguestate.{CallInfo, CallState, CallStateServer, CallTree, RichRequest}
 
 import zio.http.*
-import zio.{TaskLayer, ZLayer}
+import zio.{TaskLayer, ZIO, ZLayer}
 
 //noinspection ScalaUnusedSymbol
 class TelnyxCallStateServer(rootUrl: Path, mainCallTree: CallTree.Callback, voice: Voice)
@@ -48,12 +48,20 @@ class TelnyxCallStateServer(rootUrl: Path, mainCallTree: CallTree.Callback, voic
 
   protected def callInfoLayer(request: Request): TaskLayer[CallInfo] =
     ZLayer.fromZIO {
-      request.allParams.map { params =>
-        CallInfo(
-          callId = params.get("CallSid").flatMap(_.lastOption),
-          callerId = params.get("From").flatMap(_.lastOption),
-          digits = params.get("Digits").flatMap(_.lastOption)
-        )
+      request.allParams.flatMap { params =>
+        params.get("CallSid").flatMap(_.lastOption) match {
+          case None         =>
+            ZIO.log(params.map.mkString("Request parameters: [", ", ", "]")) *>
+              ZIO.fail(new Exception("CallSid not found"))
+          case Some(callId) =>
+            ZIO.succeed(
+              CallInfo(
+                callId = callId,
+                callerId = params.get("From").flatMap(_.lastOption),
+                digits = params.get("Digits").flatMap(_.lastOption)
+              )
+            )
+        }
       }
     }
 }

@@ -2,7 +2,7 @@ package io.github.nafg.dialoguestate
 
 import zio.ZIO
 
-case class CallInfo(callId: Option[String], callerId: Option[String], digits: Option[String])
+case class CallInfo(callId: String, callerId: Option[String], digits: Option[String])
 
 object CallInfo {
   // noinspection ScalaWeakerAccess

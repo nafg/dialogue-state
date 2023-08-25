@@ -32,7 +32,7 @@ object TeXML       {
 
   private def callParams(callInfo: CallInfo) =
     QueryParams(
-      Map("CallSid" -> callInfo.callId, "From" -> callInfo.callerId)
+      Map("CallSid" -> Some(callInfo.callId), "From" -> callInfo.callerId)
         .collect { case (key, Some(value)) => key -> Chunk(value) }
     )
 
@@ -101,7 +101,7 @@ object TeXML       {
         <.hr,
         <.a(
           ^.href := callParams(
-            CallInfo(callId = Some(Random.nextInt().toString), callerId = Some(randomPhone), digits = None)
+            CallInfo(callId = Random.nextInt().toString, callerId = Some(randomPhone), digits = None)
           ).encode
         )("New call")
       ),
