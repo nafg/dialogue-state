@@ -6,5 +6,7 @@ private object TagsBundle extends Text.Cap with Text.Aggregate with DataConverte
   // noinspection NoTargetNameAnnotationForOperatorLikeDefinition
   object < extends text.Tags with text.Tags2 with Text.Cap
   // noinspection NoTargetNameAnnotationForOperatorLikeDefinition
-  object ^ extends Text.Cap with Attrs with Styles
+  object ^ extends Text.Cap with Attrs with Styles {
+    val controls = attr("controls")
+  }
 }

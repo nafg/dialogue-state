@@ -50,7 +50,7 @@ object Twiml       {
 
   case class Play(url: URL) extends Twiml with Gather.Child {
     override private[twilio] def toTwimlTag                 = twiml.Play(url.encode)
-    override private[twilio] def toHtml(callInfo: CallInfo) = <.audio(^.src := url.encode)
+    override private[twilio] def toHtml(callInfo: CallInfo) = <.audio(^.src := url.encode, ^.controls := true)
   }
 
   case class Gather(finishOnKey: String = "#", actionOnEmptyResult: Boolean = false, timeout: Int = 5)(
