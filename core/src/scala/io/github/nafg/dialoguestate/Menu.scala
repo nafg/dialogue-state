@@ -5,13 +5,13 @@ import zio.prelude.NonEmptyList
 
 //noinspection ScalaUnusedSymbol
 object Menu {
-  def apply[A: ToText](choices: NonEmptyList[A], preposition: String = "for")(
+  def apply[A: ToText](title: CallTree.NoInput, choices: NonEmptyList[A], preposition: String = "for")(
     handler: A => CallTree.Callback
   ): CallTree.Gather = {
     val withNums         = LazyList.from(1).map(_.toString).zip(choices.toCons)
     lazy val withNumsMap = withNums.toMap
 
-    val prompts = withNums.flatMap { case (n, d) =>
+    val prompts = title +: withNums.flatMap { case (n, d) =>
       Seq(CallTree.Say(s"Press $n $preposition"), CallTree.Say(d), CallTree.Pause())
     }
 
@@ -22,6 +22,6 @@ object Menu {
     }
   }
 
-  def yesNo(handler: Boolean => CallTree.Callback): CallTree.Gather =
-    Menu[Boolean](NonEmptyList(true, false))(handler)
+  def yesNo(title: CallTree.NoInput, handler: Boolean => CallTree.Callback): CallTree.Gather =
+    Menu[Boolean](title, NonEmptyList(true, false))(handler)
 }
