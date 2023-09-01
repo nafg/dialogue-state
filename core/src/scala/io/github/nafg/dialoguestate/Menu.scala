@@ -22,6 +22,6 @@ object Menu {
     }
   }
 
-  def yesNo(title: CallTree.NoInput, handler: Boolean => CallTree.Callback): CallTree.Gather =
+  def yesNo(title: CallTree.NoInput)(handler: Boolean => CallTree.Callback): CallTree.Gather =
     Menu[Boolean](title, NonEmptyList(true, false))(handler)
 }
