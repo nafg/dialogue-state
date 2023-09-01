@@ -50,7 +50,7 @@ object TeXML       {
 
   case class Play(url: URL) extends TeXML with Gather.Child {
     override private[telnyx] def toTexMLTag(baseUrl: URL)   = texml.Play(url.encode)
-    override private[telnyx] def toHtml(callInfo: CallInfo) = <.audio(url.toString)
+    override private[telnyx] def toHtml(callInfo: CallInfo) = <.audio(^.src := url.encode)
   }
 
   case class Gather(finishOnKey: String = "#", actionOnEmptyResult: Boolean = false, timeout: Int = 5)(
