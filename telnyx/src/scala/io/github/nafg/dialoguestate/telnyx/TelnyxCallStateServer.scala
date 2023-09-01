@@ -27,8 +27,9 @@ class TelnyxCallStateServer(rootUrl: Path, mainCallTree: CallTree.Callback, voic
   }
 
   private def toTexML(noInput: CallTree.NoInput): List[TeXML.Gather.Child] = noInput match {
-    case CallTree.Say(text)                   => List(TeXML.Say(text, voice))
     case CallTree.Pause(length)               => List(TeXML.Pause(length.toSeconds.toInt))
+    case CallTree.Say(text)                   => List(TeXML.Say(text, voice))
+    case CallTree.Play(url)                   => List(TeXML.Play(url))
     case CallTree.Sequence.NoInputOnly(elems) => elems.flatMap(toTexML)
   }
 

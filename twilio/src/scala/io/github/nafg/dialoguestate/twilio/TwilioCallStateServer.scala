@@ -70,8 +70,9 @@ class TwilioCallStateServer(
   }
 
   private def toTwiml(noInput: CallTree.NoInput): List[Twiml.Gather.Child] = noInput match {
-    case CallTree.Say(text)                   => List(Twiml.Say(text))
     case CallTree.Pause(length)               => List(Twiml.Pause(length.toSeconds.toInt))
+    case CallTree.Say(text)                   => List(Twiml.Say(text))
+    case CallTree.Play(url)                   => List(Twiml.Play(url))
     case CallTree.Sequence.NoInputOnly(elems) => elems.flatMap(toTwiml)
   }
 

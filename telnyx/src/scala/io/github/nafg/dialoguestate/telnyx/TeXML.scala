@@ -18,6 +18,8 @@ object TeXML       {
     val Say   = TypedTag[String]("Say", modifiers = Nil, void = false)
     val voice = attr("voice")
 
+    val Play = TypedTag[String]("Play", modifiers = Nil, void = false)
+
     val Pause  = TypedTag[String]("Pause", modifiers = Nil, void = true)
     val length = attr("length")
 
@@ -36,15 +38,21 @@ object TeXML       {
         .collect { case (key, Some(value)) => key -> Chunk(value) }
     )
 
+  case class Pause(length: Int = 1) extends TeXML with Gather.Child {
+    override private[telnyx] def toTexMLTag(baseUrl: URL)   = texml.Pause(texml.length := length)()
+    override private[telnyx] def toHtml(callInfo: CallInfo) = <.span("-" * length)
+  }
+
   case class Say(text: String, voice: Voice) extends TeXML with Gather.Child {
     override private[telnyx] def toTexMLTag(baseUrl: URL)   = texml.Say(texml.voice := voice.value, text)
     override private[telnyx] def toHtml(callInfo: CallInfo) = <.p(text)
   }
 
-  case class Pause(length: Int = 1) extends TeXML with Gather.Child {
-    override private[telnyx] def toTexMLTag(baseUrl: URL)   = texml.Pause(texml.length := length)()
-    override private[telnyx] def toHtml(callInfo: CallInfo) = <.span("-" * length)
+  case class Play(url: URL) extends TeXML with Gather.Child {
+    override private[telnyx] def toTexMLTag(baseUrl: URL)   = texml.Play(url.encode)
+    override private[telnyx] def toHtml(callInfo: CallInfo) = <.audio(url.toString)
   }
+
   case class Gather(finishOnKey: String = "#", actionOnEmptyResult: Boolean = false, timeout: Int = 5)(
     children: Gather.Child*
   ) extends TeXML {

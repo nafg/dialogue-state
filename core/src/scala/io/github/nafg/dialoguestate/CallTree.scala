@@ -3,6 +3,7 @@ package io.github.nafg.dialoguestate
 import java.time.Duration
 
 import zio.ZIO
+import zio.http.URL
 
 sealed trait CallTree {
   def &:(that: CallTree.NoInput): CallTree
@@ -40,12 +41,14 @@ object CallTree {
     }
   }
 
+  case class Pause(length: Duration = Duration.ofSeconds(1)) extends NoInput {}
+
   case class Say(text: String) extends CallTree with NoInput {}
   object Say {
     def apply[A](a: A)(implicit A: ToText[A]) = new Say(A.toText(a))
   }
 
-  case class Pause(length: Duration = Duration.ofSeconds(1)) extends NoInput {}
+  case class Play(url: URL) extends CallTree.NoInput
 
   /** @param actionOnEmptyResult
     *   `actionOnEmptyResult` allows you to force `<Gather>` to send a webhook to the action url even when there is no

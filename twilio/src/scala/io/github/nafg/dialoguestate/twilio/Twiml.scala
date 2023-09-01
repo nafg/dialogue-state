@@ -15,10 +15,12 @@ sealed trait Twiml {
 }
 object Twiml       {
   private object twiml {
-    val Say = TypedTag[String]("Say", modifiers = Nil, void = false)
-
     val Pause  = TypedTag[String]("Pause", modifiers = Nil, void = true)
     val length = attr("length")
+
+    val Say = TypedTag[String]("Say", modifiers = Nil, void = false)
+
+    val Play = TypedTag[String]("Play", modifiers = Nil, void = false)
 
     val Gather              = TypedTag[String]("Gather", modifiers = Nil, void = false)
     val finishOnKey         = attr("finishOnKey")
@@ -36,15 +38,21 @@ object Twiml       {
         .collect { case (key, Some(value)) => key -> Chunk(value) }
     )
 
+  case class Pause(length: Int = 1) extends Twiml with Gather.Child {
+    override private[twilio] def toTwimlTag                 = twiml.Pause(twiml.length := length)()
+    override private[twilio] def toHtml(callInfo: CallInfo) = <.span("-" * length)
+  }
+
   case class Say(text: String) extends Twiml with Gather.Child {
     override private[twilio] def toTwimlTag                 = twiml.Say(text)
     override private[twilio] def toHtml(callInfo: CallInfo) = <.p(text)
   }
 
-  case class Pause(length: Int = 1) extends Twiml with Gather.Child {
-    override private[twilio] def toTwimlTag                 = twiml.Pause(twiml.length := length)()
-    override private[twilio] def toHtml(callInfo: CallInfo) = <.span("-" * length)
+  case class Play(url: URL) extends Twiml with Gather.Child {
+    override private[twilio] def toTwimlTag                 = twiml.Play(url.encode)
+    override private[twilio] def toHtml(callInfo: CallInfo) = <.audio(url.toString)
   }
+
   case class Gather(finishOnKey: String = "#", actionOnEmptyResult: Boolean = false, timeout: Int = 5)(
     children: Gather.Child*
   ) extends Twiml {
