@@ -6,7 +6,7 @@ import zio.ZIO
 import zio.http.URL
 
 sealed trait CallTree {
-  def &:(that: CallTree.NoInput): CallTree
+  def &:(that: CallTree.NoContinuation): CallTree
 }
 
 object CallTree {
@@ -25,52 +25,65 @@ object CallTree {
     */
   type Callback = ZIO[CallInfo, Failure, CallTree]
 
-  sealed trait NoInput extends CallTree {
-    override def &:(that: NoInput): NoInput = (that, this) match {
-      case (Sequence.NoInputOnly(elems), Sequence.NoInputOnly(elems2)) => Sequence.NoInputOnly(elems ++ elems2)
-      case (Sequence.NoInputOnly(elems), _)                            => Sequence.NoInputOnly(elems :+ this)
-      case (_, Sequence.NoInputOnly(elems))                            => Sequence.NoInputOnly(that +: elems)
-      case _                                                           => Sequence.NoInputOnly(List(that, this))
+  sealed trait NoContinuation extends CallTree {
+    override def &:(that: NoContinuation): NoContinuation = (that, this) match {
+      case (Sequence.NoContinuationOnly(elems), Sequence.NoContinuationOnly(elems2)) =>
+        Sequence.NoContinuationOnly(elems ++ elems2)
+      case (Sequence.NoContinuationOnly(elems), _)                                   =>
+        Sequence.NoContinuationOnly(elems :+ this)
+      case (_, Sequence.NoContinuationOnly(elems))                                   =>
+        Sequence.NoContinuationOnly(that +: elems)
+      case _                                                                         =>
+        Sequence.NoContinuationOnly(List(that, this))
     }
   }
 
-  sealed trait NeedsInput extends CallTree {
-    override def &:(that: NoInput): NeedsInput = this match {
-      case gather: Gather              => Sequence.WithGather(List(that), gather)
-      case gather: Sequence.WithGather => gather.copy(before = that :: gather.before)
+  sealed trait HasContinuation        extends CallTree {
+    override def &:(that: NoContinuation): HasContinuation = this match {
+      case sequence: Sequence.WithContinuation => sequence.copy(before = that :: sequence.before)
+      case _                                   => Sequence.WithContinuation(List(that), this)
     }
   }
+  sealed trait Sequence[G <: Boolean] extends CallTree {
+    def elems: List[CallTree]
+  }
 
-  case class Pause(length: Duration = Duration.ofSeconds(1)) extends NoInput {}
+  object Sequence {
+    case class WithContinuation(before: List[NoContinuation], hasContinuation: HasContinuation)
+        extends Sequence[true]
+        with HasContinuation {
+      override def elems = before ++ List(hasContinuation)
+    }
+    case class NoContinuationOnly(override val elems: List[NoContinuation]) extends Sequence[false] with NoContinuation
+  }
 
-  case class Say(text: String) extends CallTree with NoInput {}
+  case class Pause(length: Duration = Duration.ofSeconds(1)) extends NoContinuation
+
+  case class Say(text: String) extends CallTree with NoContinuation
   object Say {
     def apply[A](a: A)(implicit A: ToText[A]) = new Say(A.toText(a))
   }
 
-  case class Play(url: URL) extends CallTree.NoInput
+  case class Play(url: URL) extends CallTree.NoContinuation
+
+  case class Record(maxLength: Option[Duration] = None, finishOnKey: Set[DTMF] = Set('#'))(
+    val handleRecording: RecordingResult => Callback
+  ) extends CallTree.HasContinuation
 
   /** @param actionOnEmptyResult
     *   `actionOnEmptyResult` allows you to force `<Gather>` to send a webhook to the action url even when there is no
     *   DTMF input. By default, if `<Gather>` times out while waiting for DTMF input, it will continue on to the next
     *   TwiML instruction.
     */
-  case class Gather(finishOnKey: String = "#", actionOnEmptyResult: Boolean = false, timeout: Int = 5)(
-    val children: NoInput*
-  )(val handle: String => Callback)
-      extends NeedsInput {
+  case class Gather(
+    actionOnEmptyResult: Boolean = false,
+    finishOnKey: Option[DTMF] = Some('#'),
+    numDigits: Option[Int] = None,
+    timeout: Int = 5
+  )(val children: NoContinuation*)(val handle: String => Callback)
+      extends HasContinuation {
     override def toString: String =
       s"Gather($finishOnKey, $actionOnEmptyResult)(${children.mkString(", ")})"
-  }
-
-  sealed trait Sequence[G <: Boolean] extends CallTree {
-    def elems: List[CallTree]
-  }
-  object Sequence {
-    case class WithGather(before: List[NoInput], gather: Gather) extends Sequence[true] with NeedsInput {
-      override def elems = before ++ List(gather)
-    }
-    case class NoInputOnly(override val elems: List[NoInput])    extends Sequence[false] with NoInput   {}
   }
 
   // noinspection ScalaUnusedSymbol

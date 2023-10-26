@@ -2,11 +2,11 @@ package io.github.nafg.dialoguestate.twilio
 
 import scala.jdk.CollectionConverters.MapHasAsJava
 
-import io.github.nafg.dialoguestate.{CallInfo, CallState, CallStateServer, CallTree, RichRequest}
+import io.github.nafg.dialoguestate.{CallInfo, CallState, CallStateServer, CallTree, DTMF, RecordingResult, RichRequest}
 
 import com.twilio.security.RequestValidator
 import zio.http.*
-import zio.{Console, TaskLayer, ZIO, ZLayer}
+import zio.{Console, Ref, TaskLayer, ZIO, ZLayer}
 
 //noinspection ScalaUnusedSymbol
 class TwilioCallStateServer(
@@ -15,12 +15,16 @@ class TwilioCallStateServer(
   twilioAuthToken: String,
   verifyTwilio: Boolean
 ) extends CallStateServer(rootUrl, mainCallTree) {
-  private val requestValidator = new RequestValidator(twilioAuthToken)
 
-  override protected def response(callInfo: CallInfo, result: Result): Response =
-    Response
-      .text(Twiml.responseBody(callInfo, result.twiml).render)
-      .copy(headers = Headers(Header.ContentType(MediaType.text.html)))
+  override protected type CallsStates = CallsStatesBase
+  override protected def makeCallsStates: ZIO[Any, Nothing, CallsStates] =
+    for {
+      statesRef <- Ref.make(Map.empty[String, CallState])
+    } yield new CallsStatesBase {
+      override val states = statesRef
+    }
+
+  private val requestValidator = new RequestValidator(twilioAuthToken)
 
   override protected def verificationMiddleware: HttpAppMiddleware[Nothing, Any, Throwable, Any] =
     if (!verifyTwilio)
@@ -60,31 +64,69 @@ class TwilioCallStateServer(
             .orElseSucceed(false)
       }
 
-  override protected def nextCallState(result: Result): Option[CallState] = result.nextCallState
-
   override protected def errorResult(message: String): Result =
     Result(List(Twiml.Say(message), Twiml.Redirect(baseUrl)))
 
-  protected case class Result(twiml: List[Twiml], nextCallState: Option[CallState] = None) {
+  protected case class Result(twiml: List[Twiml], nextCallState: Option[CallState] = None) extends ResultBase {
+    override def response(callInfo: CallInfo): Response =
+      Response
+        .text(Twiml.responseBody(callInfo, twiml).render)
+        .copy(headers = Headers(Header.ContentType(MediaType.text.html)))
+
     def concat(that: Result) = Result(this.twiml ++ that.twiml, that.nextCallState)
   }
 
-  private def toTwiml(noInput: CallTree.NoInput): List[Twiml.Gather.Child] = noInput match {
-    case CallTree.Pause(length)               => List(Twiml.Pause(length.toSeconds.toInt))
-    case CallTree.Say(text)                   => List(Twiml.Say(text))
-    case CallTree.Play(url)                   => List(Twiml.Play(url))
-    case CallTree.Sequence.NoInputOnly(elems) => elems.flatMap(toTwiml)
+  private def toTwiml(noInput: CallTree.NoContinuation): List[Twiml.Gather.Child] = noInput match {
+    case CallTree.Pause(length)                      => List(Twiml.Pause(length.toSeconds.toInt))
+    case CallTree.Say(text)                          => List(Twiml.Say(text))
+    case CallTree.Play(url)                          => List(Twiml.Play(url))
+    case CallTree.Sequence.NoContinuationOnly(elems) => elems.flatMap(toTwiml)
   }
+
+  override protected def digits(queryParams: QueryParams): Option[String] =
+    queryParams.get("Digits").flatMap(_.lastOption)
+
+  override protected def recordingResult(
+    callsStates: CallsStates,
+    queryParams: QueryParams
+  ): ZIO[CallInfo, CallTree.Failure, RecordingResult] =
+    for {
+      url <-
+        ZIO.getOrFailWith(Left("Recording not available"))(
+          queryParams.get("RecordingURL").flatMap(_.lastOption.flatMap(s => URL.decode(s).toOption))
+        )
+    } yield RecordingResult(
+      url = url,
+      terminator = queryParams.get("Digits").flatMap(_.lastOption).flatMap {
+        case "hangup" => Some(RecordingResult.Terminator.Hangup)
+        case other    => DTMF.all.find(_.toString == other).map(RecordingResult.Terminator.Key(_))
+      }
+    )
 
   override protected def interpretTree(callTree: CallTree): Result =
     callTree match {
-      case noInput: CallTree.NoInput                                           => Result(toTwiml(noInput))
-      case gather @ CallTree.Gather(finishOnKey, actionOnEmptyResult, timeout) =>
+      case noInput: CallTree.NoContinuation                                               => Result(toTwiml(noInput))
+      case gather @ CallTree.Gather(actionOnEmptyResult, finishOnKey, numDigits, timeout) =>
         Result(
-          List(Twiml.Gather(finishOnKey, actionOnEmptyResult, timeout)(gather.children.flatMap(toTwiml)*)),
-          Some(CallState.HandleGather(gather, gather.handle))
+          List(
+            Twiml.Gather(
+              actionOnEmptyResult = actionOnEmptyResult,
+              finishOnKey = finishOnKey,
+              numDigits = numDigits,
+              timeout = timeout
+            )(gather.children.flatMap(toTwiml)*)
+          ),
+          Some(CallState.Digits(gather, gather.handle))
         )
-      case sequence: CallTree.Sequence.WithGather                              =>
+      case record @ CallTree.Record(maxLength, finishOnKey)                               =>
+        Result(
+          List(
+            Twiml
+              .Record(maxLength = maxLength.map(_.toSeconds.toInt), finishOnKey = finishOnKey)
+          ),
+          Some(CallState.Recording(record, record.handleRecording))
+        )
+      case sequence: CallTree.Sequence.WithContinuation                                   =>
         sequence.elems.foldLeft(Result(Nil)) { case (result, tree) =>
           result concat interpretTree(tree)
         }
@@ -98,13 +140,7 @@ class TwilioCallStateServer(
             ZIO.log(params.map.mkString("Request parameters: [", ", ", "]")) *>
               ZIO.fail(new Exception("CallSid not found"))
           case Some(callId) =>
-            ZIO.succeed(
-              CallInfo(
-                callId = callId,
-                callerId = params.get("From").flatMap(_.lastOption),
-                digits = params.get("Digits").flatMap(_.lastOption)
-              )
-            )
+            ZIO.succeed(CallInfo(callId = callId, callerId = params.get("From").flatMap(_.lastOption)))
         }
       }
     }
