@@ -5,7 +5,6 @@ import scala.concurrent.TimeoutException
 import io.github.nafg.dialoguestate.{CallInfo, CallState, CallStateServer, CallTree, DTMF, RecordingResult, RichRequest}
 
 import zio.http.*
-import zio.http.Method.POST
 import zio.{Promise, Ref, TaskLayer, ZIO, ZLayer, durationInt}
 
 //noinspection ScalaUnusedSymbol
@@ -34,8 +33,7 @@ class TelnyxCallStateServer(rootPath: Path, mainCallTree: CallTree.Callback, voi
       override val recordings = recordingsRef
     }
 
-  override protected def verificationMiddleware: HttpAppMiddleware[Nothing, Any, Throwable, Any] =
-    HttpAppMiddleware.identity
+  override protected def verificationMiddleware: Middleware[Any] = Middleware.identity
 
   override protected def errorResult(message: String): Result =
     Result(List(TeXML.Say(message, voice), TeXML.Redirect(baseUrl)))
@@ -65,8 +63,7 @@ class TelnyxCallStateServer(rootPath: Path, mainCallTree: CallTree.Callback, voi
     case CallTree.Sequence.NoContinuationOnly(elems) => elems.flatMap(toTexML)
   }
 
-  override protected def digits(queryParams: QueryParams): Option[String] =
-    queryParams.get("Digits").flatMap(_.lastOption)
+  override protected def digits(queryParams: QueryParams): Option[String] = queryParams.get("Digits")
 
   override protected def recordingResult(
     callsStates: CallsStates,
@@ -79,7 +76,7 @@ class TelnyxCallStateServer(rootPath: Path, mainCallTree: CallTree.Callback, voi
         _       <- callsStates.recordings.update(_ - callInfo.callId)
       } yield RecordingResult(
         url = url,
-        terminator = queryParams.get("Digits").flatMap(_.lastOption).flatMap {
+        terminator = queryParams.get("Digits").flatMap {
           case "hangup" => Some(RecordingResult.Terminator.Hangup)
           case other    => DTMF.all.find(_.toString == other).map(RecordingResult.Terminator.Key.apply)
         }
@@ -125,30 +122,28 @@ class TelnyxCallStateServer(rootPath: Path, mainCallTree: CallTree.Callback, voi
   protected def callInfoLayer(request: Request): TaskLayer[CallInfo] =
     ZLayer.fromZIO {
       request.allParams.flatMap { params =>
-        params.get("CallSid").flatMap(_.lastOption) match {
+        params.get("CallSid") match {
           case None         =>
             ZIO.log(params.map.mkString("Request parameters: [", ", ", "]")) *>
               ZIO.fail(new Exception("CallSid not found"))
           case Some(callId) =>
-            ZIO.succeed(CallInfo(callId = callId, callerId = params.get("From").flatMap(_.lastOption)))
+            ZIO.succeed(CallInfo(callId = callId, callerId = params.get("From")))
         }
       }
     }
 
   override protected def allEndpoints(callsStates: CallsStates) =
     super.allEndpoints(callsStates) ++
-      Http.collectZIO[Request] { case request @ POST -> `recordingStatusCallbackPath` =>
+      Routes(RoutePattern.POST / recordingStatusCallbackPath.encode -> handler { (request: Request) =>
         for {
           params  <- request.allParams
-          callId  <- ZIO.getOrFail(params.get("CallSid").flatMap(_.lastOption))
-          status  <- ZIO.getOrFail(params.get("RecordingStatus").flatMap(_.lastOption))
+          callId  <- ZIO.getOrFail(params.get("CallSid"))
+          status  <- ZIO.getOrFail(params.get("RecordingStatus"))
           promise <- callsStates.recordingPromise(callId)
           _       <-
             if (!status.contains("completed")) ZIO.unit
             else
-              promise.complete(
-                ZIO.getOrFail(params.get("RecordingUrl").flatMap(_.lastOption.flatMap(URL.decode(_).toOption)))
-              )
+              promise.complete(ZIO.getOrFail(params.get("RecordingUrl").flatMap(URL.decode(_).toOption)))
         } yield Response.ok
-      }
+      })
 }

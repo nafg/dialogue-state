@@ -115,7 +115,7 @@ object Twiml       {
   case class Redirect(url: URL) extends Twiml {
     override private[twilio] def toTwimlTag                 = twiml.Redirect(url.encode)
     override private[twilio] def toHtml(callInfo: CallInfo) =
-      <.a(^.href := url.withQueryParams(callParams(callInfo)).encode)("Redirect")
+      <.a(^.href := url.queryParams(callParams(callInfo)).encode)("Redirect")
   }
 
   private[twilio] def responseBody(callInfo: CallInfo, nodes: List[Twiml]) = {

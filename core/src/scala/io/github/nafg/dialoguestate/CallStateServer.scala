@@ -1,8 +1,7 @@
 package io.github.nafg.dialoguestate
 
 import zio.http.*
-import zio.http.Method.GET
-import zio.{Console, Ref, TaskLayer, UIO, ZIO}
+import zio.{Ref, TaskLayer, UIO, ZIO}
 
 abstract class CallStateServer(rootPath: Path, mainCallTree: CallTree.Callback) {
   trait CallsStatesBase {
@@ -21,12 +20,10 @@ abstract class CallStateServer(rootPath: Path, mainCallTree: CallTree.Callback) 
 
   protected def errorResult(message: String): Result
 
-  private def errorResponse(throwable: Throwable) =
-    Response.fromHttpError(HttpError.InternalServerError(throwable.getMessage, Some(throwable)))
+  private val basePath  = rootPath / "call"
+  protected val baseUrl = URL(basePath)
 
-  protected val baseUrl = URL(rootPath / "call")
-
-  protected def verificationMiddleware: HttpAppMiddleware[Nothing, Any, Throwable, Any]
+  protected def verificationMiddleware: Middleware[Any]
 
   /** Interpret a call tree. The result is used to generate the next HTTP response and determine the next call state.
     *
@@ -72,24 +69,17 @@ abstract class CallStateServer(rootPath: Path, mainCallTree: CallTree.Callback) 
   protected def callInfoLayer(request: Request): TaskLayer[CallInfo]
 
   // noinspection ScalaWeakerAccess
-  val app: UIO[App[Any]] =
+  val app: UIO[HttpApp[Any]] =
     makeCallsStates.map { callsStates =>
-      val base: EHttpApp      = allEndpoints(callsStates)
-      val withDebug: EHttpApp = base @@ HttpAppMiddleware.debug
-      withDebug
-        .tapErrorCauseZIO(cause => Console.printLineError(cause.prettyPrint).ignoreLogged)
-        .mapError(errorResponse) @@ HttpAppMiddleware.beautifyErrors
+      allEndpoints(callsStates).sandbox.toHttpApp @@ Middleware.debug @@ HandlerAspect.beautifyErrors
     }
 
-  protected def allEndpoints(callsStates: CallsStates): EHttpApp = {
-    val withVerification: EHttpApp =
-      callEndpoint(callsStates) @@ verificationMiddleware
-    withVerification ++
+  protected def allEndpoints(callsStates: CallsStates): Routes[Any, Throwable] =
+    callEndpoint(callsStates) @@ verificationMiddleware ++
       callsEndpoint(callsStates)
-  }
 
-  private def callEndpoint(callsStates: CallsStates) =
-    Http.collectZIO[Request] { case request @ _ -> baseUrl.path =>
+  private def callEndpoint(callsStates: CallsStates): Routes[Any, Throwable] = Routes(
+    Method.ANY / basePath.encode -> handler { (request: Request) =>
       ZIO
         .serviceWithZIO[CallInfo] { callInfo =>
           val callId = callInfo.callId
@@ -119,13 +109,13 @@ abstract class CallStateServer(rootPath: Path, mainCallTree: CallTree.Callback) 
             }
         }
         .provide(callInfoLayer(request))
-        .catchAll(throwable => ZIO.succeed(errorResponse(throwable)))
     }
+  )
 
-  private def callsEndpoint(callsStates: CallsStates) =
-    Http.collectZIO[Request] { case GET -> `rootPath` / "calls" =>
+  private def callsEndpoint(callsStates: CallsStates): Routes[Any, Nothing] =
+    Routes(RoutePattern.GET / rootPath.encode / "calls" -> handler {
       callsStates.states.get.map { map => Response.text(map.mkString("\n")) }
-    }
+    })
 
   // noinspection ScalaUnusedSymbol
   def serve = app.flatMap(Server.serve(_))

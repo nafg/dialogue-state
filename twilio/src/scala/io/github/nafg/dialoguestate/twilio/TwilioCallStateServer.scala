@@ -26,11 +26,11 @@ class TwilioCallStateServer(
 
   private val requestValidator = new RequestValidator(twilioAuthToken)
 
-  override protected def verificationMiddleware: HttpAppMiddleware[Nothing, Any, Throwable, Any] =
+  override protected def verificationMiddleware: Middleware[Any] =
     if (!verifyTwilio)
-      HttpAppMiddleware.identity
+      Middleware.identity
     else
-      HttpAppMiddleware.allowZIO { (request: Request) =>
+      Middleware.allowZIO { (request: Request) =>
         Console.printLine(request.headers.toList.mkString("\n")).ignoreLogged *>
           ZIO
             .exists(request.rawHeader("X-Twilio-Signature")) { signatureHeader =>
@@ -83,8 +83,7 @@ class TwilioCallStateServer(
     case CallTree.Sequence.NoContinuationOnly(elems) => elems.flatMap(toTwiml)
   }
 
-  override protected def digits(queryParams: QueryParams): Option[String] =
-    queryParams.get("Digits").flatMap(_.lastOption)
+  override protected def digits(queryParams: QueryParams): Option[String] = queryParams.get("Digits")
 
   override protected def recordingResult(
     callsStates: CallsStates,
@@ -93,11 +92,11 @@ class TwilioCallStateServer(
     for {
       url <-
         ZIO.getOrFailWith(Left("Recording not available"))(
-          queryParams.get("RecordingURL").flatMap(_.lastOption.flatMap(s => URL.decode(s).toOption))
+          queryParams.get("RecordingURL").flatMap(URL.decode(_).toOption)
         )
     } yield RecordingResult(
       url = url,
-      terminator = queryParams.get("Digits").flatMap(_.lastOption).flatMap {
+      terminator = queryParams.get("Digits").flatMap {
         case "hangup" => Some(RecordingResult.Terminator.Hangup)
         case other    => DTMF.all.find(_.toString == other).map(RecordingResult.Terminator.Key(_))
       }
@@ -135,12 +134,12 @@ class TwilioCallStateServer(
   protected def callInfoLayer(request: Request): TaskLayer[CallInfo] =
     ZLayer.fromZIO {
       request.allParams.flatMap { params =>
-        params.get("CallSid").flatMap(_.lastOption) match {
+        params.get("CallSid") match {
           case None         =>
             ZIO.log(params.map.mkString("Request parameters: [", ", ", "]")) *>
               ZIO.fail(new Exception("CallSid not found"))
           case Some(callId) =>
-            ZIO.succeed(CallInfo(callId = callId, callerId = params.get("From").flatMap(_.lastOption)))
+            ZIO.succeed(CallInfo(callId = callId, callerId = params.get("From")))
         }
       }
     }
