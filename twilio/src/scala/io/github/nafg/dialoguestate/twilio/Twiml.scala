@@ -2,7 +2,7 @@ package io.github.nafg.dialoguestate.twilio
 
 import scala.util.Random
 
-import io.github.nafg.dialoguestate.CallInfo
+import io.github.nafg.dialoguestate.{CallInfo, DTMF}
 import io.github.nafg.dialoguestate.twilio.TagsBundle.*
 
 import scalatags.Text.TypedTag
@@ -22,9 +22,13 @@ object Twiml       {
 
     val Play = TypedTag[String]("Play", modifiers = Nil, void = false)
 
+    val Record    = TypedTag[String]("Record", modifiers = Nil, void = false)
+    val maxLength = attr("maxLength")
+
     val Gather              = TypedTag[String]("Gather", modifiers = Nil, void = false)
-    val finishOnKey         = attr("finishOnKey")
     val actionOnEmptyResult = attr("actionOnEmptyResult")
+    val finishOnKey         = attr("finishOnKey")
+    val numDigits           = attr("numDigits")
     val timeout             = attr("timeout")
 
     val Redirect = TypedTag[String]("Redirect", modifiers = Nil, void = false)
@@ -53,13 +57,33 @@ object Twiml       {
     override private[twilio] def toHtml(callInfo: CallInfo) = <.audio(^.src := url.encode, ^.controls := true)
   }
 
-  case class Gather(finishOnKey: String = "#", actionOnEmptyResult: Boolean = false, timeout: Int = 5)(
+  private def callParamsFields(callInfo: CallInfo) =
+    for ((k, v) <- callParams(callInfo).map.toSeq; vv <- v)
+      yield <.input(^.`type` := "hidden", ^.name := k, ^.value := vv)()
+
+  case class Record(maxLength: Option[Int], finishOnKey: Set[DTMF]) extends Twiml {
+    override private[twilio] def toTwimlTag                 =
+      twiml.Record(maxLength.map(twiml.maxLength := _), twiml.finishOnKey := finishOnKey.mkString)
+    override private[twilio] def toHtml(callInfo: CallInfo) =
+      <.form(
+        callParamsFields(callInfo),
+        <.input(
+          ^.`type` := "hidden",
+          ^.name   := "RecordingURL",
+          ^.value  := "https://soundbible.com/mp3/Public%20Transit%20Bus-SoundBible.com-671541921.mp3"
+        ),
+        <.button(^.`type` := "submit")("Submit")
+      )
+  }
+
+  case class Gather(actionOnEmptyResult: Boolean, finishOnKey: Option[DTMF], numDigits: Option[Int], timeout: Int = 5)(
     children: Gather.Child*
   ) extends Twiml {
     override private[twilio] def toTwimlTag                 =
       twiml.Gather(
-        twiml.finishOnKey         := finishOnKey,
         twiml.actionOnEmptyResult := actionOnEmptyResult,
+        twiml.finishOnKey         := finishOnKey.iterator.mkString,
+        numDigits.map(twiml.numDigits := _),
         twiml.timeout             := timeout
       )(children.map(_.toTwimlTag)*)
     override private[twilio] def toHtml(callInfo: CallInfo) = {
@@ -73,15 +97,11 @@ object Twiml       {
           <.li(other.toHtml(callInfo)) :: childTags(rest)
       }
 
-      def callParamsFields =
-        for ((k, v) <- callParams(callInfo).map.toSeq; vv <- v)
-          yield <.input(^.`type` := "hidden", ^.name := k, ^.value := vv)()
-
       <.div(
-        <.form(<.ul(childTags(children.toList)*), callParamsFields),
+        <.form(<.ul(childTags(children.toList)*), callParamsFields(callInfo)),
         <.form(
           <.input(^.`type` := "text", ^.name := "Digits")(),
-          callParamsFields,
+          callParamsFields(callInfo),
           <.button(^.`type` := "submit")("Submit")
         )
       )
@@ -95,7 +115,7 @@ object Twiml       {
   case class Redirect(url: URL) extends Twiml {
     override private[twilio] def toTwimlTag                 = twiml.Redirect(url.encode)
     override private[twilio] def toHtml(callInfo: CallInfo) =
-      <.a(^.href := url.withQueryParams(callParams(callInfo)).encode)("Redirect")
+      <.a(^.href := url.queryParams(callParams(callInfo)).encode)("Redirect")
   }
 
   private[twilio] def responseBody(callInfo: CallInfo, nodes: List[Twiml]) = {
@@ -104,14 +124,11 @@ object Twiml       {
       twiml.Pause(twiml.length := 0)(
         <.div(^.color.black)(nodes.map(_.toHtml(callInfo))*),
         <.hr,
-        <.a(
-          ^.href := callParams(
-            CallInfo(callId = Random.nextInt().toString, callerId = Some(randomPhone), digits = None)
-          ).encode
-        )("New call")
+        <.a(^.href := callParams(CallInfo(callId = Random.nextInt().toString, callerId = Some(randomPhone))).encode)(
+          "New call"
+        )
       ),
       nodes.map(_.toTwimlTag)
     )
   }
-
 }
