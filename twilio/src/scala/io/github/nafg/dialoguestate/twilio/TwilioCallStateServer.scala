@@ -98,7 +98,7 @@ class TwilioCallStateServer(
       url = url,
       terminator = queryParams.get("Digits").flatMap {
         case "hangup" => Some(RecordingResult.Terminator.Hangup)
-        case other    => DTMF.all.find(_.toString == other).map(RecordingResult.Terminator.Key(_))
+        case other    => DTMF.all.find(_.toString == other).map(RecordingResult.Terminator.Key.apply)
       }
     )
 
