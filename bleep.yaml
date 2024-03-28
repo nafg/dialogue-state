@@ -18,7 +18,7 @@ projects:
   twilio:
     dependencies:
     - com.lihaoyi::scalatags:0.12.0
-    - com.twilio.sdk:twilio:9.6.2
+    - com.twilio.sdk:twilio:10.1.2
     dependsOn: core
     extends: template-cross
 scripts:
