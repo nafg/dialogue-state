@@ -3,9 +3,10 @@ $version: 0.0.3
 jvm:
   name: graalvm-java17:22.3.1
 projects:
-  core:
+  dialogue-state-core:
     dependencies: dev.zio::zio-http:3.0.0-RC3
     extends: template-cross
+    folder: ./core
   scripts:
     dependencies: build.bleep::bleep-plugin-ci-release:${BLEEP_VERSION}
     extends: template-common
@@ -13,13 +14,13 @@ projects:
       version: 3.3.0
   telnyx:
     dependencies: com.lihaoyi::scalatags:0.12.0
-    dependsOn: core
+    dependsOn: dialogue-state-core
     extends: template-cross
   twilio:
     dependencies:
     - com.lihaoyi::scalatags:0.12.0
     - com.twilio.sdk:twilio:10.1.2
-    dependsOn: core
+    dependsOn: dialogue-state-core
     extends: template-cross
 scripts:
   publish:
