@@ -2,7 +2,9 @@ package io.github.nafg.dialoguestate
 
 import scala.annotation.unused
 
-case class DTMF private (value: Char) extends AnyVal
+case class DTMF private (value: Char) extends AnyVal {
+  override def toString: String = value.toString
+}
 object DTMF {
   class ToDTMF[C <: Char] private (val value: C)
   object ToDTMF {
