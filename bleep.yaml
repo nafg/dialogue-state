@@ -13,12 +13,12 @@ projects:
     - template-common
     - template-scala-3
   telnyx:
-    dependencies: com.lihaoyi::scalatags:0.12.0
+    dependencies: com.lihaoyi::scalatags:0.13.1
     dependsOn: dialogue-state-core
     extends: template-cross-all
   twilio:
     dependencies:
-    - com.lihaoyi::scalatags:0.12.0
+    - com.lihaoyi::scalatags:0.13.1
     - com.twilio.sdk:twilio:10.1.2
     dependsOn: dialogue-state-core
     extends: template-cross-all
