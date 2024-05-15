@@ -5,23 +5,23 @@ jvm:
 projects:
   dialogue-state-core:
     dependencies: dev.zio::zio-http:3.0.0-RC3
-    extends: template-cross
+    extends: template-cross-all
     folder: ./core
   scripts:
     dependencies: build.bleep::bleep-plugin-ci-release:${BLEEP_VERSION}
-    extends: template-common
-    scala:
-      version: 3.3.0
+    extends:
+    - template-common
+    - template-scala-3
   telnyx:
     dependencies: com.lihaoyi::scalatags:0.12.0
     dependsOn: dialogue-state-core
-    extends: template-cross
+    extends: template-cross-all
   twilio:
     dependencies:
     - com.lihaoyi::scalatags:0.12.0
     - com.twilio.sdk:twilio:10.1.2
     dependsOn: dialogue-state-core
-    extends: template-cross
+    extends: template-cross-all
 scripts:
   publish:
     main: scripts.Publish
@@ -33,13 +33,17 @@ templates:
     scala:
       options: -encoding utf8 -feature -unchecked
       strict: true
-  template-cross:
+  template-cross-all:
     cross:
       scala2:
-        scala:
-          options: -Xsource:3
-          version: 2.13.11
+        extends: template-scala-2
       scala3:
-        scala:
-          version: 3.3.0
+        extends: template-scala-3
     extends: template-common
+  template-scala-2:
+    scala:
+      options: -Xsource:3
+      version: 2.13.11
+  template-scala-3:
+    scala:
+      version: 3.3.0
