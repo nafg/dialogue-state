@@ -49,7 +49,7 @@ class TwilioCallStateServer(
                         URL.Location.Absolute(
                           scheme = if (secure) Scheme.HTTPS else Scheme.HTTP,
                           host = host.hostAddress,
-                          port = if (secure) 443 else 80
+                          originalPort = None
                         )
                       )
                   })
