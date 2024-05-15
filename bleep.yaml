@@ -19,7 +19,7 @@ projects:
   twilio:
     dependencies:
     - com.lihaoyi::scalatags:0.13.1
-    - com.twilio.sdk:twilio:10.1.2
+    - com.twilio.sdk:twilio:10.1.5
     dependsOn: dialogue-state-core
     extends: template-cross-all
 scripts:
