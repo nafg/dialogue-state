@@ -139,7 +139,7 @@ object TeXML       {
   case class Redirect(url: URL) extends TeXML {
     override private[telnyx] def toTexMLTag(baseUrl: URL)                  = texml.Redirect(url.encode)
     override private[telnyx] def toHtml(info: ToHtmlInfo): TagsBundle.Frag =
-      <.a(^.href := url.queryParams(callParams(info.callInfo)).encode)("Redirect")
+      <.a(^.href := url.addQueryParams(callParams(info.callInfo)).encode)("Redirect")
   }
 
   private[telnyx] def responseBody(baseUrl: URL, toHtmlInfo: ToHtmlInfo, nodes: List[TeXML]) = {

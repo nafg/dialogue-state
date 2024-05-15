@@ -63,7 +63,7 @@ class TelnyxCallStateServer(rootPath: Path, mainCallTree: CallTree.Callback, voi
     case CallTree.Sequence.NoContinuationOnly(elems) => elems.flatMap(toTexML)
   }
 
-  override protected def digits(queryParams: QueryParams): Option[String] = queryParams.get("Digits")
+  override protected def digits(queryParams: QueryParams): Option[String] = queryParams.getAll("Digits").headOption
 
   override protected def recordingResult(
     callsStates: CallsStates,
@@ -76,7 +76,7 @@ class TelnyxCallStateServer(rootPath: Path, mainCallTree: CallTree.Callback, voi
         _       <- callsStates.recordings.update(_ - callInfo.callId)
       } yield RecordingResult(
         url = url,
-        terminator = queryParams.get("Digits").flatMap {
+        terminator = queryParams.getAll("Digits").headOption.flatMap {
           case "hangup" => Some(RecordingResult.Terminator.Hangup)
           case other    => DTMF.all.find(_.toString == other).map(RecordingResult.Terminator.Key.apply)
         }
@@ -122,12 +122,12 @@ class TelnyxCallStateServer(rootPath: Path, mainCallTree: CallTree.Callback, voi
   protected def callInfoLayer(request: Request): TaskLayer[CallInfo] =
     ZLayer.fromZIO {
       request.allParams.flatMap { params =>
-        params.get("CallSid") match {
+        params.getAll("CallSid").headOption match {
           case None         =>
             ZIO.log(params.map.mkString("Request parameters: [", ", ", "]")) *>
               ZIO.fail(new Exception("CallSid not found"))
           case Some(callId) =>
-            ZIO.succeed(CallInfo(callId = callId, callerId = params.get("From")))
+            ZIO.succeed(CallInfo(callId = callId, callerId = params.getAll("From").headOption))
         }
       }
     }
@@ -137,13 +137,13 @@ class TelnyxCallStateServer(rootPath: Path, mainCallTree: CallTree.Callback, voi
       Routes(RoutePattern.POST / recordingStatusCallbackPath.encode -> handler { (request: Request) =>
         for {
           params  <- request.allParams
-          callId  <- ZIO.getOrFail(params.get("CallSid"))
-          status  <- ZIO.getOrFail(params.get("RecordingStatus"))
+          callId  <- ZIO.getOrFail(params.getAll("CallSid").headOption)
+          status  <- ZIO.getOrFail(params.getAll("RecordingStatus").headOption)
           promise <- callsStates.recordingPromise(callId)
           _       <-
-            if (!status.contains("completed")) ZIO.unit
-            else
-              promise.complete(ZIO.getOrFail(params.get("RecordingUrl").flatMap(URL.decode(_).toOption)))
+            ZIO.when(status.contains("completed"))(
+              promise.complete(ZIO.getOrFail(params.getAll("RecordingUrl").headOption.flatMap(URL.decode(_).toOption)))
+            )
         } yield Response.ok
       })
 }

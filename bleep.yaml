@@ -4,7 +4,7 @@ jvm:
   name: graalvm-java17:22.3.1
 projects:
   dialogue-state-core:
-    dependencies: dev.zio::zio-http:3.0.0-RC4
+    dependencies: dev.zio::zio-http:3.0.0-RC6
     extends: template-cross-all
     folder: ./core
   scripts:
