@@ -83,7 +83,7 @@ class TwilioCallStateServer(
     case CallTree.Sequence.NoContinuationOnly(elems) => elems.flatMap(toTwiml)
   }
 
-  override protected def digits(queryParams: QueryParams): Option[String] = queryParams.get("Digits")
+  override protected def digits(queryParams: QueryParams): Option[String] = queryParams.getAll("Digits").headOption
 
   override protected def recordingResult(
     callsStates: CallsStates,
@@ -92,11 +92,11 @@ class TwilioCallStateServer(
     for {
       url <-
         ZIO.getOrFailWith(Left("Recording not available"))(
-          queryParams.get("RecordingURL").flatMap(URL.decode(_).toOption)
+          queryParams.getAll("RecordingURL").headOption.flatMap(URL.decode(_).toOption)
         )
     } yield RecordingResult(
       url = url,
-      terminator = queryParams.get("Digits").flatMap {
+      terminator = queryParams.getAll("Digits").headOption.flatMap {
         case "hangup" => Some(RecordingResult.Terminator.Hangup)
         case other    => DTMF.all.find(_.toString == other).map(RecordingResult.Terminator.Key.apply)
       }
@@ -134,12 +134,12 @@ class TwilioCallStateServer(
   protected def callInfoLayer(request: Request): TaskLayer[CallInfo] =
     ZLayer.fromZIO {
       request.allParams.flatMap { params =>
-        params.get("CallSid") match {
+        params.getAll("CallSid").headOption match {
           case None         =>
             ZIO.log(params.map.mkString("Request parameters: [", ", ", "]")) *>
               ZIO.fail(new Exception("CallSid not found"))
           case Some(callId) =>
-            ZIO.succeed(CallInfo(callId = callId, callerId = params.get("From")))
+            ZIO.succeed(CallInfo(callId = callId, callerId = params.getAll("From").headOption))
         }
       }
     }
