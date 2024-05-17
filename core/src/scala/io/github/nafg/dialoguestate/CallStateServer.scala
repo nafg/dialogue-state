@@ -69,9 +69,9 @@ abstract class CallStateServer(rootPath: Path, mainCallTree: CallTree.Callback) 
   protected def callInfoLayer(request: Request): TaskLayer[CallInfo]
 
   // noinspection ScalaWeakerAccess
-  val app: UIO[HttpApp[Any]] =
+  val app: UIO[Routes[Any, Nothing]] =
     makeCallsStates.map { callsStates =>
-      allEndpoints(callsStates).sandbox.toHttpApp @@ Middleware.debug @@ HandlerAspect.beautifyErrors
+      allEndpoints(callsStates).sandbox @@ Middleware.debug @@ HandlerAspect.beautifyErrors
     }
 
   protected def allEndpoints(callsStates: CallsStates): Routes[Any, Throwable] =
