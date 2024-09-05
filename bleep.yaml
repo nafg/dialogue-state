@@ -17,9 +17,12 @@ projects:
     dependsOn: dialogue-state-core
     extends: template-cross-all
   twilio:
+    cross:
+      scala2: {}
+      scala3: {}
     dependencies:
     - com.lihaoyi::scalatags:0.13.1
-    - com.twilio.sdk:twilio:10.1.5
+    - com.twilio.sdk:twilio:10.4.2
     dependsOn: dialogue-state-core
     extends: template-cross-all
 scripts:
