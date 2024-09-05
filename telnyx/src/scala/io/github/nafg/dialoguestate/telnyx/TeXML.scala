@@ -48,18 +48,18 @@ object TeXML       {
     )
 
   case class Pause(length: Int = 1) extends TeXML with Gather.Child {
-    override private[telnyx] def toTexMLTag(baseUrl: URL)                  = texml.Pause(texml.length := length)()
-    override private[telnyx] def toHtml(info: ToHtmlInfo): TagsBundle.Frag = <.span("-" * length)
+    override private[telnyx] def toTexMLTag(baseUrl: URL): Frag = texml.Pause(texml.length := length)()
+    override private[telnyx] def toHtml(info: ToHtmlInfo): Frag = <.span("-" * length)
   }
 
   case class Say(text: String, voice: Voice) extends TeXML with Gather.Child {
-    override private[telnyx] def toTexMLTag(baseUrl: URL)                  = texml.Say(texml.voice := voice.value, text)
-    override private[telnyx] def toHtml(info: ToHtmlInfo): TagsBundle.Frag = <.p(text)
+    override private[telnyx] def toTexMLTag(baseUrl: URL): Frag = texml.Say(texml.voice := voice.value, text)
+    override private[telnyx] def toHtml(info: ToHtmlInfo): Frag = <.p(text)
   }
 
   case class Play(url: URL) extends TeXML with Gather.Child {
-    override private[telnyx] def toTexMLTag(baseUrl: URL)                  = texml.Play(url.encode)
-    override private[telnyx] def toHtml(info: ToHtmlInfo): TagsBundle.Frag =
+    override private[telnyx] def toTexMLTag(baseUrl: URL): Frag = texml.Play(url.encode)
+    override private[telnyx] def toHtml(info: ToHtmlInfo): Frag =
       <.audio(^.src := url.encode, ^.controls := true)
   }
 
@@ -68,14 +68,14 @@ object TeXML       {
       yield <.input(^.`type` := "hidden", ^.name := k, ^.value := vv)()
 
   case class Record(maxLength: Option[Int], finishOnKey: Set[DTMF], recordingStatusCallback: URL) extends TeXML {
-    override private[telnyx] def toTexMLTag(baseUrl: URL)                  =
+    override private[telnyx] def toTexMLTag(baseUrl: URL): Frag =
       texml.Record(
         maxLength.map(texml.maxLength := _),
         texml.finishOnKey             := finishOnKey.mkString,
         texml.recordingStatusCallback := recordingStatusCallback.encode,
         texml.action                  := baseUrl.encode
       )
-    override private[telnyx] def toHtml(info: ToHtmlInfo): TagsBundle.Frag =
+    override private[telnyx] def toHtml(info: ToHtmlInfo): Frag =
       <.form(
         callParamsFields(info),
         <.button(
@@ -99,7 +99,7 @@ object TeXML       {
   case class Gather(actionOnEmptyResult: Boolean, finishOnKey: Option[DTMF], numDigits: Option[Int], timeout: Int = 5)(
     children: Gather.Child*
   ) extends TeXML {
-    override private[telnyx] def toTexMLTag(baseUrl: URL)                  = {
+    override private[telnyx] def toTexMLTag(baseUrl: URL)       = {
       val gatherVerb =
         texml.Gather(
           texml.finishOnKey := finishOnKey.iterator.mkString,
@@ -110,7 +110,7 @@ object TeXML       {
       else
         frag(gatherVerb, Redirect(baseUrl).toTexMLTag(baseUrl))
     }
-    override private[telnyx] def toHtml(info: ToHtmlInfo): TagsBundle.Frag = {
+    override private[telnyx] def toHtml(info: ToHtmlInfo): Frag = {
       def childTags(children: List[Gather.Child]): List[Tag] = children match {
         case Nil                                                                    => Nil
         case Say(s"Press $digits $preposition", _) :: Say(d, _) :: Pause(1) :: rest =>
@@ -137,8 +137,8 @@ object TeXML       {
   }
 
   case class Redirect(url: URL) extends TeXML {
-    override private[telnyx] def toTexMLTag(baseUrl: URL)                  = texml.Redirect(url.encode)
-    override private[telnyx] def toHtml(info: ToHtmlInfo): TagsBundle.Frag =
+    override private[telnyx] def toTexMLTag(baseUrl: URL): Frag = texml.Redirect(url.encode)
+    override private[telnyx] def toHtml(info: ToHtmlInfo): Frag =
       <.a(^.href := url.addQueryParams(callParams(info.callInfo)).encode)("Redirect")
   }
 

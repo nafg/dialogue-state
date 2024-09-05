@@ -43,18 +43,18 @@ object Twiml       {
     )
 
   case class Pause(length: Int = 1) extends Twiml with Gather.Child {
-    override private[twilio] def toTwimlTag                 = twiml.Pause(twiml.length := length)()
-    override private[twilio] def toHtml(callInfo: CallInfo) = <.span("-" * length)
+    override private[twilio] def toTwimlTag: Frag                 = twiml.Pause(twiml.length := length)()
+    override private[twilio] def toHtml(callInfo: CallInfo): Frag = <.span("-" * length)
   }
 
   case class Say(text: String) extends Twiml with Gather.Child {
-    override private[twilio] def toTwimlTag                 = twiml.Say(text)
-    override private[twilio] def toHtml(callInfo: CallInfo) = <.p(text)
+    override private[twilio] def toTwimlTag: Frag                 = twiml.Say(text)
+    override private[twilio] def toHtml(callInfo: CallInfo): Frag = <.p(text)
   }
 
   case class Play(url: URL) extends Twiml with Gather.Child {
-    override private[twilio] def toTwimlTag                 = twiml.Play(url.encode)
-    override private[twilio] def toHtml(callInfo: CallInfo) = <.audio(^.src := url.encode, ^.controls := true)
+    override private[twilio] def toTwimlTag: Frag                 = twiml.Play(url.encode)
+    override private[twilio] def toHtml(callInfo: CallInfo): Frag = <.audio(^.src := url.encode, ^.controls := true)
   }
 
   private def callParamsFields(callInfo: CallInfo) =
@@ -62,9 +62,9 @@ object Twiml       {
       yield <.input(^.`type` := "hidden", ^.name := k, ^.value := vv)()
 
   case class Record(maxLength: Option[Int], finishOnKey: Set[DTMF]) extends Twiml {
-    override private[twilio] def toTwimlTag                 =
+    override private[twilio] def toTwimlTag: Frag                 =
       twiml.Record(maxLength.map(twiml.maxLength := _), twiml.finishOnKey := finishOnKey.mkString)
-    override private[twilio] def toHtml(callInfo: CallInfo) =
+    override private[twilio] def toHtml(callInfo: CallInfo): Frag =
       <.form(
         callParamsFields(callInfo),
         <.input(
@@ -79,14 +79,14 @@ object Twiml       {
   case class Gather(actionOnEmptyResult: Boolean, finishOnKey: Option[DTMF], numDigits: Option[Int], timeout: Int = 5)(
     children: Gather.Child*
   ) extends Twiml {
-    override private[twilio] def toTwimlTag                 =
+    override private[twilio] def toTwimlTag: Frag                 =
       twiml.Gather(
         twiml.actionOnEmptyResult := actionOnEmptyResult,
         twiml.finishOnKey         := finishOnKey.iterator.mkString,
         numDigits.map(twiml.numDigits := _),
         twiml.timeout             := timeout
       )(children.map(_.toTwimlTag)*)
-    override private[twilio] def toHtml(callInfo: CallInfo) = {
+    override private[twilio] def toHtml(callInfo: CallInfo): Frag = {
       def childTags(children: List[Gather.Child]): List[Tag] = children match {
         case Nil                                                              => Nil
         case Say(s"Press $digits $preposition") :: Say(d) :: Pause(1) :: rest =>
@@ -113,8 +113,8 @@ object Twiml       {
   }
 
   case class Redirect(url: URL) extends Twiml {
-    override private[twilio] def toTwimlTag                 = twiml.Redirect(url.encode)
-    override private[twilio] def toHtml(callInfo: CallInfo) =
+    override private[twilio] def toTwimlTag: Frag                 = twiml.Redirect(url.encode)
+    override private[twilio] def toHtml(callInfo: CallInfo): Frag =
       <.a(^.href := url.addQueryParams(callParams(callInfo)).encode)("Redirect")
   }
 

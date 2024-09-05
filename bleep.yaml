@@ -48,8 +48,8 @@ templates:
     extends: template-common
   template-scala-2:
     scala:
-      options: -Xsource:3
-      version: 2.13.11
+      options: -Xsource-features:case-apply-copy-access -Xsource:3
+      version: 2.13.14
   template-scala-3:
     scala:
       version: 3.5.0
