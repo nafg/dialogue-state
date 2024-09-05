@@ -4,6 +4,9 @@ jvm:
   name: graalvm-java17:22.3.1
 projects:
   dialogue-state-core:
+    cross:
+      scala2: {}
+      scala3: {}
     dependencies: dev.zio::zio-http:3.0.0-RC7
     extends: template-cross-all
     folder: ./core
@@ -17,6 +20,9 @@ projects:
     dependsOn: dialogue-state-core
     extends: template-cross-all
   twilio:
+    cross:
+      scala2: {}
+      scala3: {}
     dependencies:
     - com.lihaoyi::scalatags:0.13.1
     - com.twilio.sdk:twilio:10.1.5
