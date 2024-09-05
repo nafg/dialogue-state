@@ -70,7 +70,7 @@ object Publish extends BleepScript("Publish") {
       packagedLibraries.flatMap { case (_, PackagedLibrary(_, files)) => files.all }
 
     files.foreach { case (path, bytes) =>
-      started.logger.withContext(path)(_.asString).withContext(bytes.length).debug("will publish")
+      started.logger.withContext(path)(using _.asString).withContext(bytes.length).debug("will publish")
     }
 
     ciRelease.ciRelease(files)

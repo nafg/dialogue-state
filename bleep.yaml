@@ -1,5 +1,5 @@
 $schema: https://raw.githubusercontent.com/oyvindberg/bleep/master/schema.json
-$version: 0.0.3
+$version: 0.0.7
 jvm:
   name: graalvm-java17:22.3.1
 projects:
@@ -45,8 +45,8 @@ templates:
     extends: template-common
   template-scala-2:
     scala:
-      options: -Xsource:3
-      version: 2.13.11
+      options: -Xsource-features:case-apply-copy-access -Xsource:3
+      version: 2.13.14
   template-scala-3:
     scala:
-      version: 3.3.0
+      version: 3.5.0
