@@ -3,6 +3,7 @@ package scripts
 import scala.collection.immutable.SortedMap
 
 import bleep.*
+import bleep.model.CrossProjectName
 import bleep.nosbt.InteractionService
 import bleep.packaging.{CoordinatesFor, PackagedLibrary, PublishLayout, packageLibraries}
 import bleep.plugin.cirelease.CiReleasePlugin
@@ -14,7 +15,7 @@ import coursier.Info
 object Publish extends BleepScript("Publish") {
   private val groupId = "io.github.nafg.dialogue-state"
 
-  private def projectsToPublish(crossName: model.CrossProjectName): Boolean =
+  private def projectsToPublish(crossName: CrossProjectName): Boolean =
     crossName.name.value match {
       case "scripts" => false
       case _         => true
@@ -57,7 +58,7 @@ object Publish extends BleepScript("Publish") {
       )
     )
 
-    val packagedLibraries: SortedMap[model.CrossProjectName, PackagedLibrary] =
+    val packagedLibraries: SortedMap[CrossProjectName, PackagedLibrary] =
       packageLibraries(
         started,
         coordinatesFor = CoordinatesFor.Default(groupId = groupId, version = dynVer.version),
