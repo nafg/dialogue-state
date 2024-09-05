@@ -22,7 +22,7 @@ object DTMF {
     implicit val hash: ToDTMF['#']  = new ToDTMF('#')
   }
 
-  implicit def apply[C <: Char with Singleton](@unused c: C)(implicit toDTMF: ToDTMF[C]): DTMF = new DTMF(toDTMF.value)
+  implicit def apply[C <: Char & Singleton](@unused c: C)(implicit toDTMF: ToDTMF[C]): DTMF = new DTMF(toDTMF.value)
 
   def unapply(dtmf: DTMF): Option[Char] = Some(dtmf.value)
 
