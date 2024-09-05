@@ -127,7 +127,7 @@ class TwilioCallStateServer(
         )
       case sequence: CallTree.Sequence.WithContinuation                                   =>
         sequence.elems.foldLeft(Result(Nil)) { case (result, tree) =>
-          result concat interpretTree(tree)
+          result.concat(interpretTree(tree))
         }
     }
 

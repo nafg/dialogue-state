@@ -52,4 +52,4 @@ templates:
       version: 2.13.11
   template-scala-3:
     scala:
-      version: 3.3.0
+      version: 3.5.0
