@@ -7,7 +7,7 @@ projects:
     cross:
       scala2: {}
       scala3: {}
-    dependencies: dev.zio::zio-http:3.0.0-RC10
+    dependencies: dev.zio::zio-http:3.0.1
     extends: template-cross-all
     folder: ./core
   scripts:
