@@ -2,13 +2,16 @@ package io.github.nafg.dialoguestate
 
 import zio.ZIO
 
-case class CallInfo(callId: String, callerId: Option[String])
+case class CallInfo(callId: String, from: String, to: String) {
+  @deprecated("Use from instead", "0.8.0")
+  def callerId = Some(from)
+}
 
 object CallInfo {
-  // noinspection ScalaWeakerAccess
-  def maybeCallerId: ZIO[CallInfo, Nothing, Option[String]] =
-    ZIO.serviceWith[CallInfo](_.callerId)
+  def callerId: ZIO[CallInfo, Nothing, String] =
+    ZIO.serviceWith[CallInfo](_.from)
 
-  def callerId: ZIO[CallInfo, String, String] =
-    maybeCallerId.someOrFail("No caller ID")
+  @deprecated("Use callerId instead", "0.8.0")
+  def maybeCallerId: ZIO[CallInfo, Nothing, Option[String]] =
+    callerId.asSome
 }

@@ -2,11 +2,10 @@ package io.github.nafg.dialoguestate.telnyx
 
 import scala.util.Random
 
+import io.github.nafg.dialoguestate.telnyx.TagsBundle.*
 import io.github.nafg.dialoguestate.{CallInfo, DTMF}
-import TagsBundle.*
 
 import scalatags.Text.TypedTag
-import zio.Chunk
 import zio.http.{QueryParams, URL}
 
 sealed trait TeXML {
@@ -42,10 +41,7 @@ object TeXML       {
   }
 
   private def callParams(callInfo: CallInfo) =
-    QueryParams(
-      Map("CallSid" -> Some(callInfo.callId), "From" -> callInfo.callerId)
-        .collect { case (key, Some(value)) => key -> Chunk(value) }
-    )
+    QueryParams("CallSid" -> callInfo.callId, "From" -> callInfo.from, "To" -> callInfo.to)
 
   case class Pause(length: Int = 1) extends TeXML with Gather.Child {
     override private[telnyx] def toTexMLTag(baseUrl: URL): Frag = texml.Pause(texml.length := length)()
@@ -148,9 +144,10 @@ object TeXML       {
       texml.Pause(texml.length := 0)(
         <.div(^.color.black)(nodes.map(_.toHtml(toHtmlInfo))*),
         <.hr,
-        <.a(^.href := callParams(CallInfo(callId = Random.nextInt().toString, callerId = Some(randomPhone))).encode)(
-          "New call"
-        )
+        <.a(
+          ^.href :=
+            callParams(toHtmlInfo.callInfo.copy(callId = Random.nextInt().toString, from = randomPhone)).encode
+        )("New call")
       ),
       nodes.map(_.toTexMLTag(baseUrl))
     )
