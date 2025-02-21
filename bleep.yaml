@@ -1,5 +1,5 @@
 $schema: https://raw.githubusercontent.com/oyvindberg/bleep/master/schema.json
-$version: 0.0.8
+$version: 0.0.12
 jvm:
   name: temurin:17
 projects:
