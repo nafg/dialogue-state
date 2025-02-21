@@ -1,0 +1,19 @@
+groupId: io.github.nafg.dialogue-state
+projects:
+  - dialogue-state-core
+  - telnyx
+  - twilio
+sonatype:
+  profileName: io.github.nafg
+  bundleName: dialogue-state
+info:
+  description: Define a Twilio app in terms of a sane call tree
+  homePage: https://github.com/nafg/dialogue-state
+  developers:
+    - name: Naftoli Gugenheim
+      id: nafg
+      url: https://github.com/nafg
+  licenseInfo:
+    - name: Apache-2.0
+      url: https://www.apache.org/licenses/LICENSE-2.0.txt
+      distribution: repo
