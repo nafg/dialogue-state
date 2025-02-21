@@ -25,7 +25,7 @@ projects:
       scala3: {}
     dependencies:
     - com.lihaoyi::scalatags:0.13.1
-    - com.twilio.sdk:twilio:10.5.2
+    - com.twilio.sdk:twilio:10.6.10
     dependsOn: dialogue-state-core
     extends: template-cross-all
 scripts:
