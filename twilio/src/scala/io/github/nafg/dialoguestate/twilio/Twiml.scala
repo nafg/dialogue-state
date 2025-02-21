@@ -2,11 +2,10 @@ package io.github.nafg.dialoguestate.twilio
 
 import scala.util.Random
 
-import io.github.nafg.dialoguestate.{CallInfo, DTMF}
 import io.github.nafg.dialoguestate.twilio.TagsBundle.*
+import io.github.nafg.dialoguestate.{CallInfo, DTMF}
 
 import scalatags.Text.TypedTag
-import zio.Chunk
 import zio.http.{QueryParams, URL}
 
 sealed trait Twiml {
@@ -37,10 +36,7 @@ object Twiml       {
   }
 
   private def callParams(callInfo: CallInfo) =
-    QueryParams(
-      Map("CallSid" -> Some(callInfo.callId), "From" -> callInfo.callerId)
-        .collect { case (key, Some(value)) => key -> Chunk(value) }
-    )
+    QueryParams("CallSid" -> callInfo.callId, "From" -> callInfo.from, "To" -> callInfo.to)
 
   case class Pause(length: Int = 1) extends Twiml with Gather.Child {
     override private[twilio] def toTwimlTag: Frag                 = twiml.Pause(twiml.length := length)()
@@ -124,9 +120,10 @@ object Twiml       {
       twiml.Pause(twiml.length := 0)(
         <.div(^.color.black)(nodes.map(_.toHtml(callInfo))*),
         <.hr,
-        <.a(^.href := callParams(CallInfo(callId = Random.nextInt().toString, callerId = Some(randomPhone))).encode)(
-          "New call"
-        )
+        <.a(
+          ^.href :=
+            callParams(callInfo.copy(callId = Random.nextInt().toString, from = randomPhone)).encode
+        )("New call")
       ),
       nodes.map(_.toTwimlTag)
     )
