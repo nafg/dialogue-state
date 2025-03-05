@@ -6,7 +6,7 @@ import io.github.nafg.dialoguestate.{CallInfo, CallState, CallStateServer, CallT
 
 import com.twilio.security.RequestValidator
 import zio.http.*
-import zio.{Console, Ref, TaskLayer, ZIO, ZLayer}
+import zio.{Console, Ref, ZIO}
 
 //noinspection ScalaUnusedSymbol
 class TwilioCallStateServer(
@@ -131,13 +131,11 @@ class TwilioCallStateServer(
         }
     }
 
-  protected def callInfoLayer(request: Request): TaskLayer[CallInfo] =
-    ZLayer {
-      for {
-        params <- request.allParams
-        callId <- params.queryParamToZIO[String]("CallSid")
-        from   <- params.queryParamToZIO[String]("From")
-        to     <- params.queryParamToZIO[String]("To")
-      } yield CallInfo(callId = callId, from = from, to = to)
-    }
+  protected def callInfo(request: Request) =
+    for {
+      params <- request.allParams
+      callId <- params.queryParamToZIO[String]("CallSid")
+      from   <- params.queryParamToZIO[String]("From")
+      to     <- params.queryParamToZIO[String]("To")
+    } yield CallInfo(callId = callId, from = from, to = to)
 }

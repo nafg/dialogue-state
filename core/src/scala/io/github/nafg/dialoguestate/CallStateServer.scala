@@ -1,7 +1,7 @@
 package io.github.nafg.dialoguestate
 
 import zio.http.*
-import zio.{Ref, TaskLayer, UIO, ZIO}
+import zio.{Ref, Task, UIO, ZIO, ZLayer}
 
 abstract class CallStateServer(rootPath: Path, mainCallTree: CallTree.Callback) {
   trait CallsStatesBase {
@@ -66,7 +66,7 @@ abstract class CallStateServer(rootPath: Path, mainCallTree: CallTree.Callback) 
 
     }
 
-  protected def callInfoLayer(request: Request): TaskLayer[CallInfo]
+  protected def callInfo(request: Request): Task[CallInfo]
 
   // noinspection ScalaWeakerAccess
   val app: UIO[Routes[Any, Nothing]] =
@@ -84,35 +84,38 @@ abstract class CallStateServer(rootPath: Path, mainCallTree: CallTree.Callback) 
 
   private def callEndpoint(callsStates: CallsStates): Routes[Any, Throwable] = Routes(
     Method.ANY / basePath.encode -> handler { (request: Request) =>
-      ZIO
-        .serviceWithZIO[CallInfo] { callInfo =>
-          val callId = callInfo.callId
-          (for {
-            callState <- callsStates.states.get
-                           .map(_.get(callId))
-                           .someOrElseZIO(mainCallTree.map(CallState.Const(_): CallState))
-            params    <- request.allParams.asRightError
-            _         <- ZIO.log(request.toString)
-            _         <- ZIO.log(params.toString)
-            result    <- interpretState(callState, callsStates, params)
-            _         <- callsStates.states.update { map =>
-                           result.nextCallState match {
-                             case Some(tree) => map + (callId -> tree)
-                             case None       => map - callId
+      callInfo(request)
+        .foldZIO(
+          failure = t => ZIO.succeed(Response.badRequest(t.getMessage)),
+          success = { callInfo =>
+            val callId = callInfo.callId
+            (for {
+              callState <- callsStates.states.get
+                             .map(_.get(callId))
+                             .someOrElseZIO(mainCallTree.map(CallState.Const(_): CallState))
+              params    <- request.allParams.asRightError
+              _         <- ZIO.log(request.toString)
+              _         <- ZIO.log(params.toString)
+              result    <- interpretState(callState, callsStates, params)
+              _         <- callsStates.states.update { map =>
+                             result.nextCallState match {
+                               case Some(tree) => map + (callId -> tree)
+                               case None       => map - callId
+                             }
                            }
-                         }
-          } yield result.response(callInfo))
-            .tap(_.body.asString.asRightError.flatMap(ZIO.log(_)))
-            .catchAll {
-              case Left(str)    => ZIO.succeed(errorResult(str).response(callInfo))
-              case Right(error) =>
-                ZIO.attemptBlocking {
-                  error.printStackTrace()
-                  errorResult("An error occurred").response(callInfo)
-                }
-            }
-        }
-        .provide(callInfoLayer(request))
+            } yield result.response(callInfo))
+              .tap(_.body.asString.asRightError.flatMap(ZIO.log(_)))
+              .catchAll {
+                case Left(str)    => ZIO.succeed(errorResult(str).response(callInfo))
+                case Right(error) =>
+                  ZIO.attemptBlocking {
+                    error.printStackTrace()
+                    errorResult("An error occurred").response(callInfo)
+                  }
+              }
+              .provide(ZLayer.succeed(callInfo))
+          }
+        )
     }
   )
 
