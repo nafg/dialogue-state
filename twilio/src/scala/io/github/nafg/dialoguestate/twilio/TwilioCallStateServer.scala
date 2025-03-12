@@ -134,8 +134,8 @@ class TwilioCallStateServer(
   protected def callInfo(request: Request) =
     for {
       params <- request.allParams
-      callId <- params.queryParamToZIO[String]("CallSid")
-      from   <- params.queryParamToZIO[String]("From")
-      to     <- params.queryParamToZIO[String]("To")
+      callId <- params.queryZIO[String]("CallSid")
+      from   <- params.queryZIO[String]("From")
+      to     <- params.queryZIO[String]("To")
     } yield CallInfo(callId = callId, from = from, to = to)
 }
