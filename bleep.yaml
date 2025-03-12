@@ -4,7 +4,7 @@ jvm:
   name: temurin:17
 projects:
   dialogue-state-core:
-    dependencies: dev.zio::zio-http:3.0.1
+    dependencies: dev.zio::zio-http:3.1.0
     extends: template-cross-all
     folder: ./core
   scripts:
