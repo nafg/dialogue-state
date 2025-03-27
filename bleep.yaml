@@ -8,7 +8,7 @@ projects:
     extends: template-cross-all
     folder: ./core
   scripts:
-    dependencies: io.github.nafg.bleep-plugins::bleep-plugin-publish:0.1.0
+    dependencies: io.github.nafg.bleep-plugins::bleep-plugin-publish:0.2.0
     extends:
     - template-common
     - template-scala-3
