@@ -57,6 +57,8 @@ object CallTree {
     case class NoContinuationOnly(override val elems: List[NoContinuation]) extends Sequence[false] with NoContinuation
   }
 
+  val empty = Sequence.NoContinuationOnly(Nil)
+
   case class Pause(length: Duration = Duration.ofSeconds(1)) extends NoContinuation
 
   case class Say(text: String) extends CallTree with NoContinuation
@@ -66,27 +68,29 @@ object CallTree {
 
   case class Play(url: URL) extends CallTree.NoContinuation
 
-  case class Record(maxLength: Option[Duration] = None, finishOnKey: Set[DTMF] = Set('#'))(
-    val handleRecording: RecordingResult => Callback
-  ) extends CallTree.HasContinuation
+  abstract class Record(val maxLength: Option[Duration] = None, val finishOnKey: Set[DTMF] = Set('#'))
+      extends CallTree.HasContinuation {
+    def handle(result: RecordingResult): Callback
+  }
 
   /** @param actionOnEmptyResult
     *   `actionOnEmptyResult` allows you to force `<Gather>` to send a webhook to the action url even when there is no
     *   DTMF input. By default, if `<Gather>` times out while waiting for DTMF input, it will continue on to the next
     *   TwiML instruction.
     */
-  case class Gather(
-    actionOnEmptyResult: Boolean = false,
-    finishOnKey: Option[DTMF] = Some('#'),
-    numDigits: Option[Int] = None,
-    timeout: Int = 5
-  )(val children: NoContinuation*)(val handle: String => Callback)
-      extends HasContinuation {
-    override def toString: String =
-      s"Gather($finishOnKey, $actionOnEmptyResult)(${children.mkString(", ")})"
+  abstract class Gather(
+    val actionOnEmptyResult: Boolean = false,
+    val finishOnKey: Option[DTMF] = Some('#'),
+    val numDigits: Option[Int] = None,
+    val timeout: Int = 5
+  ) extends CallTree.HasContinuation {
+    def message: NoContinuation
+    def handle: String => Callback
   }
 
   // noinspection ScalaUnusedSymbol
-  def suspend(cont: Callback) =
-    Gather(actionOnEmptyResult = true, timeout = 0)()(_ => cont)
+  def suspend(cont: Callback) = new Gather(actionOnEmptyResult = false, timeout = 0) {
+    override def message: NoContinuation = CallTree.empty
+    override def handle                  = _ => cont
+  }
 }

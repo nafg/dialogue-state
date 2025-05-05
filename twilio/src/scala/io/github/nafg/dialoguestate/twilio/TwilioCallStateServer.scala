@@ -104,28 +104,25 @@ class TwilioCallStateServer(
 
   override protected def interpretTree(callTree: CallTree): Result =
     callTree match {
-      case noInput: CallTree.NoContinuation                                               => Result(toTwiml(noInput))
-      case gather @ CallTree.Gather(actionOnEmptyResult, finishOnKey, numDigits, timeout) =>
+      case noInput: CallTree.NoContinuation             => Result(toTwiml(noInput))
+      case gather: CallTree.Gather                      =>
         Result(
           List(
             Twiml.Gather(
-              actionOnEmptyResult = actionOnEmptyResult,
-              finishOnKey = finishOnKey,
-              numDigits = numDigits,
-              timeout = timeout
-            )(gather.children.flatMap(toTwiml)*)
+              actionOnEmptyResult = gather.actionOnEmptyResult,
+              finishOnKey = gather.finishOnKey,
+              numDigits = gather.numDigits,
+              timeout = gather.timeout
+            )(toTwiml(gather.message)*)
           ),
           Some(CallState.Digits(gather, gather.handle))
         )
-      case record @ CallTree.Record(maxLength, finishOnKey)                               =>
+      case record: CallTree.Record                      =>
         Result(
-          List(
-            Twiml
-              .Record(maxLength = maxLength.map(_.toSeconds.toInt), finishOnKey = finishOnKey)
-          ),
-          Some(CallState.Recording(record, record.handleRecording))
+          List(Twiml.Record(maxLength = record.maxLength.map(_.toSeconds.toInt), finishOnKey = record.finishOnKey)),
+          Some(CallState.Recording(record, record.handle))
         )
-      case sequence: CallTree.Sequence.WithContinuation                                   =>
+      case sequence: CallTree.Sequence.WithContinuation =>
         sequence.elems.foldLeft(Result(Nil)) { case (result, tree) =>
           result.concat(interpretTree(tree))
         }
