@@ -88,32 +88,32 @@ class TelnyxCallStateServer(rootPath: Path, mainCallTree: CallTree.Callback, voi
 
   override protected def interpretTree(callTree: CallTree): Result =
     callTree match {
-      case noInput: CallTree.NoContinuation                                               => Result(toTexML(noInput))
-      case gather @ CallTree.Gather(actionOnEmptyResult, finishOnKey, numDigits, timeout) =>
+      case noInput: CallTree.NoContinuation             => Result(toTexML(noInput))
+      case gather: CallTree.Gather                      =>
         Result(
           List(
             TeXML.Gather(
-              actionOnEmptyResult = actionOnEmptyResult,
-              finishOnKey = finishOnKey,
-              numDigits = numDigits,
-              timeout = timeout
-            )(gather.children.flatMap(toTexML)*)
+              actionOnEmptyResult = gather.actionOnEmptyResult,
+              finishOnKey = gather.finishOnKey,
+              numDigits = gather.numDigits,
+              timeout = gather.timeout
+            )(toTexML(gather.message)*)
           ),
           Some(CallState.Digits(gather, gather.handle))
         )
-      case record @ CallTree.Record(maxLength, finishOnKey)                               =>
+      case record: CallTree.Record                      =>
         Result(
           List(
             TeXML
               .Record(
-                maxLength = maxLength.map(_.toSeconds.toInt),
+                maxLength = record.maxLength.map(_.toSeconds.toInt),
                 recordingStatusCallback = recordingStatusCallbackUrl,
-                finishOnKey = finishOnKey
+                finishOnKey = record.finishOnKey
               )
           ),
-          Some(CallState.Recording(record, record.handleRecording))
+          Some(CallState.Recording(record, record.handle))
         )
-      case sequence: CallTree.Sequence.WithContinuation                                   =>
+      case sequence: CallTree.Sequence.WithContinuation =>
         sequence.elems.foldLeft(Result(Nil)) { case (result, tree) =>
           result.concat(interpretTree(tree))
         }
