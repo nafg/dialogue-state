@@ -89,8 +89,16 @@ object CallTree {
   }
 
   // noinspection ScalaUnusedSymbol
+  @deprecated("Extend class Suspend instead", "0.13.0")
   def suspend(cont: Callback) = new Gather(actionOnEmptyResult = true, timeout = 0) {
     override def message: NoContinuation = CallTree.empty
     override def handle                  = _ => cont
+  }
+
+  // noinspection ScalaUnusedSymbol
+  abstract class Suspend extends Gather(actionOnEmptyResult = true, timeout = 0) {
+    override def message: NoContinuation = CallTree.empty
+    def continue: Callback
+    override def handle                  = _ => continue
   }
 }
