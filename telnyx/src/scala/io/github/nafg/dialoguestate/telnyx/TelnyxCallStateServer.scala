@@ -4,8 +4,8 @@ import scala.concurrent.TimeoutException
 
 import io.github.nafg.dialoguestate.{CallInfo, CallState, CallStateServer, CallTree, DTMF, RecordingResult, RichRequest}
 
-import zio.{Promise, Ref, ZIO, durationInt}
 import zio.http.*
+import zio.{Promise, Ref, ZIO, durationInt}
 
 //noinspection ScalaUnusedSymbol
 class TelnyxCallStateServer(rootPath: Path, mainCallTree: CallTree.Callback, voice: Voice)
@@ -36,22 +36,22 @@ class TelnyxCallStateServer(rootPath: Path, mainCallTree: CallTree.Callback, voi
   override protected def verificationMiddleware: Middleware[Any] = Middleware.identity
 
   override protected def errorResult(message: String): Result =
-    Result(List(TeXML.Say(message, voice), TeXML.Redirect(baseUrl)))
+    Result(List(Node.Say(message, voice), Node.Redirect(baseUrl)))
 
-  protected case class Result(texml: List[TeXML], nextCallState: Option[CallState] = None) extends ResultBase {
+  protected case class Result(nodes: List[Node], nextCallState: Option[CallState] = None) extends ResultBase {
     override def response(callInfo: CallInfo): Response =
       Response
-        .text(TeXML.responseBody(baseUrl, callInfo, texml).render)
+        .text(Node.responseBody(baseUrl, callInfo, nodes).render)
         .copy(headers = Headers(Header.ContentType(MediaType.text.html)))
 
-    def concat(that: Result) = Result(this.texml ++ that.texml, that.nextCallState)
+    def concat(that: Result) = Result(this.nodes ++ that.nodes, that.nextCallState)
   }
 
-  private def toTexML(noCont: CallTree.NoContinuation): List[TeXML.Gather.Child] = noCont match {
-    case CallTree.Pause(length)                      => List(TeXML.Pause(length.toSeconds.toInt))
-    case CallTree.Say(text)                          => List(TeXML.Say(text, voice))
-    case CallTree.Play(url)                          => List(TeXML.Play(url))
-    case CallTree.Sequence.NoContinuationOnly(elems) => elems.flatMap(toTexML)
+  private def toNodes(noCont: CallTree.NoContinuation): List[Node.Gather.Child] = noCont match {
+    case CallTree.Pause(length)                      => List(Node.Pause(length.toSeconds.toInt))
+    case CallTree.Say(text)                          => List(Node.Say(text, voice))
+    case CallTree.Play(url)                          => List(Node.Play(url))
+    case CallTree.Sequence.NoContinuationOnly(elems) => elems.flatMap(toNodes)
   }
 
   override protected def digits(queryParams: QueryParams): Option[String] = queryParams.getAll("Digits").headOption
@@ -79,23 +79,23 @@ class TelnyxCallStateServer(rootPath: Path, mainCallTree: CallTree.Callback, voi
 
   override protected def interpretTree(callTree: CallTree): Result =
     callTree match {
-      case noInput: CallTree.NoContinuation             => Result(toTexML(noInput))
+      case noCont: CallTree.NoContinuation              => Result(toNodes(noCont))
       case gather: CallTree.Gather                      =>
         Result(
           List(
-            TeXML.Gather(
+            Node.Gather(
               actionOnEmptyResult = gather.actionOnEmptyResult,
               finishOnKey = gather.finishOnKey,
               numDigits = gather.numDigits,
               timeout = gather.timeout
-            )(toTexML(gather.message)*)
+            )(toNodes(gather.message)*)
           ),
           Some(CallState.Digits(gather, gather.handle))
         )
       case record: CallTree.Record                      =>
         Result(
           List(
-            TeXML.Record(
+            Node.Record(
               maxLength = record.maxLength.map(_.toSeconds.toInt),
               recordingStatusCallback = recordingStatusCallbackUrl,
               finishOnKey = record.finishOnKey

@@ -8,11 +8,11 @@ import io.github.nafg.dialoguestate.{CallInfo, DTMF}
 import scalatags.Text.TypedTag
 import zio.http.{QueryParams, URL}
 
-sealed trait TeXML {
+sealed trait Node {
   private[telnyx] def toTag(baseUrl: URL): Frag
   private[telnyx] def toHtml(info: CallInfo): Frag
 }
-object TeXML       {
+object Node       {
   private object tags {
     val finishOnKey = attr("finishOnKey")
 
@@ -41,17 +41,17 @@ object TeXML       {
   private def callParams(callInfo: CallInfo) =
     QueryParams("CallSid" -> callInfo.callId, "From" -> callInfo.from, "To" -> callInfo.to)
 
-  case class Pause(length: Int = 1) extends TeXML with Gather.Child {
+  case class Pause(length: Int = 1) extends Node with Gather.Child {
     override private[telnyx] def toTag(baseUrl: URL): Frag    = tags.Pause(tags.length := length)()
     override private[telnyx] def toHtml(info: CallInfo): Frag = <.span("-" * length)
   }
 
-  case class Say(text: String, voice: Voice) extends TeXML with Gather.Child {
+  case class Say(text: String, voice: Voice) extends Node with Gather.Child {
     override private[telnyx] def toTag(baseUrl: URL): Frag    = tags.Say(tags.voice := voice.value, text)
     override private[telnyx] def toHtml(info: CallInfo): Frag = <.p(text)
   }
 
-  case class Play(url: URL) extends TeXML with Gather.Child {
+  case class Play(url: URL) extends Node with Gather.Child {
     override private[telnyx] def toTag(baseUrl: URL): Frag    = tags.Play(url.encode)
     override private[telnyx] def toHtml(info: CallInfo): Frag =
       <.audio(^.src := url.encode, ^.controls := true)
@@ -61,7 +61,7 @@ object TeXML       {
     for ((k, v) <- callParams(info).map.toSeq; vv <- v)
       yield <.input(^.`type` := "hidden", ^.name := k, ^.value := vv)()
 
-  case class Record(maxLength: Option[Int], finishOnKey: Set[DTMF], recordingStatusCallback: URL) extends TeXML {
+  case class Record(maxLength: Option[Int], finishOnKey: Set[DTMF], recordingStatusCallback: URL) extends Node {
     override private[telnyx] def toTag(baseUrl: URL): Frag    =
       tags.Record(
         maxLength.map(tags.maxLength := _),
@@ -92,7 +92,7 @@ object TeXML       {
 
   case class Gather(actionOnEmptyResult: Boolean, finishOnKey: Option[DTMF], numDigits: Option[Int], timeout: Int = 5)(
     children: Gather.Child*
-  ) extends TeXML {
+  ) extends Node {
     override private[telnyx] def toTag(baseUrl: URL)          = {
       val gatherVerb =
         tags.Gather(
@@ -127,16 +127,16 @@ object TeXML       {
   }
 
   object Gather {
-    sealed trait Child extends TeXML
+    sealed trait Child extends Node
   }
 
-  case class Redirect(url: URL) extends TeXML {
+  case class Redirect(url: URL) extends Node {
     override private[telnyx] def toTag(baseUrl: URL): Frag    = tags.Redirect(url.encode)
     override private[telnyx] def toHtml(info: CallInfo): Frag =
       <.a(^.href := url.addQueryParams(callParams(info)).encode)("Redirect")
   }
 
-  private[telnyx] def responseBody(baseUrl: URL, callInfo: CallInfo, nodes: List[TeXML]) = {
+  private[telnyx] def responseBody(baseUrl: URL, callInfo: CallInfo, nodes: List[Node]) = {
     def randomPhone = s"+1888555${1000 + Random.nextInt(8999)}"
     tags.Response(^.color := "transparent")(
       tags.Pause(tags.length := 0)(
