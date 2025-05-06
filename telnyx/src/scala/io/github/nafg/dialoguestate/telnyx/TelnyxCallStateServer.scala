@@ -45,7 +45,7 @@ class TelnyxCallStateServer(rootPath: Path, mainCallTree: CallTree.Callback, voi
           TeXML
             .responseBody(
               baseUrl = baseUrl,
-              toHtmlInfo =
+              info =
                 TeXML.ToHtmlInfo(recordingStatusCallbackUrl = recordingStatusCallbackUrl, callInfo = callInfo),
               nodes = texml
             )
