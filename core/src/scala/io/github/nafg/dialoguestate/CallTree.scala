@@ -89,7 +89,7 @@ object CallTree {
   }
 
   // noinspection ScalaUnusedSymbol
-  def suspend(cont: Callback) = new Gather(actionOnEmptyResult = false, timeout = 0) {
+  def suspend(cont: Callback) = new Gather(actionOnEmptyResult = true, timeout = 0) {
     override def message: NoContinuation = CallTree.empty
     override def handle                  = _ => cont
   }
