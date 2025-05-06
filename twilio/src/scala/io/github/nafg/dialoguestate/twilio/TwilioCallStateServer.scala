@@ -65,21 +65,21 @@ class TwilioCallStateServer(
       }
 
   override protected def errorResult(message: String): Result =
-    Result(List(Twiml.Say(message), Twiml.Redirect(baseUrl)))
+    Result(List(TwiML.Say(message), TwiML.Redirect(baseUrl)))
 
-  protected case class Result(twiml: List[Twiml], nextCallState: Option[CallState] = None) extends ResultBase {
+  protected case class Result(twiml: List[TwiML], nextCallState: Option[CallState] = None) extends ResultBase {
     override def response(callInfo: CallInfo): Response =
       Response
-        .text(Twiml.responseBody(callInfo, twiml).render)
+        .text(TwiML.responseBody(callInfo, twiml).render)
         .copy(headers = Headers(Header.ContentType(MediaType.text.html)))
 
     def concat(that: Result) = Result(this.twiml ++ that.twiml, that.nextCallState)
   }
 
-  private def toTwiml(noInput: CallTree.NoContinuation): List[Twiml.Gather.Child] = noInput match {
-    case CallTree.Pause(length)                      => List(Twiml.Pause(length.toSeconds.toInt))
-    case CallTree.Say(text)                          => List(Twiml.Say(text))
-    case CallTree.Play(url)                          => List(Twiml.Play(url))
+  private def toTwiml(noInput: CallTree.NoContinuation): List[TwiML.Gather.Child] = noInput match {
+    case CallTree.Pause(length)                      => List(TwiML.Pause(length.toSeconds.toInt))
+    case CallTree.Say(text)                          => List(TwiML.Say(text))
+    case CallTree.Play(url)                          => List(TwiML.Play(url))
     case CallTree.Sequence.NoContinuationOnly(elems) => elems.flatMap(toTwiml)
   }
 
@@ -108,7 +108,7 @@ class TwilioCallStateServer(
       case gather: CallTree.Gather                      =>
         Result(
           List(
-            Twiml.Gather(
+            TwiML.Gather(
               actionOnEmptyResult = gather.actionOnEmptyResult,
               finishOnKey = gather.finishOnKey,
               numDigits = gather.numDigits,
@@ -119,7 +119,7 @@ class TwilioCallStateServer(
         )
       case record: CallTree.Record                      =>
         Result(
-          List(Twiml.Record(maxLength = record.maxLength.map(_.toSeconds.toInt), finishOnKey = record.finishOnKey)),
+          List(TwiML.Record(maxLength = record.maxLength.map(_.toSeconds.toInt), finishOnKey = record.finishOnKey)),
           Some(CallState.Recording(record, record.handle))
         )
       case sequence: CallTree.Sequence.WithContinuation =>
