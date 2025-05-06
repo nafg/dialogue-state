@@ -1,28 +1,43 @@
 package io.github.nafg.dialoguestate.twilio
 
+import scala.concurrent.TimeoutException
 import scala.jdk.CollectionConverters.MapHasAsJava
 
 import io.github.nafg.dialoguestate.{CallInfo, CallState, CallStateServer, CallTree, DTMF, RecordingResult, RichRequest}
 
 import com.twilio.security.RequestValidator
 import zio.http.*
-import zio.{Console, Ref, ZIO}
+import zio.{Console, Promise, Ref, ZIO, durationInt}
 
 //noinspection ScalaUnusedSymbol
 class TwilioCallStateServer(
-  rootUrl: Path,
+  rootPath: Path,
   mainCallTree: CallTree.Callback,
   twilioAuthToken: String,
   verifyTwilio: Boolean,
   voice: Voice
-) extends CallStateServer(rootUrl, mainCallTree) {
+) extends CallStateServer(rootPath, mainCallTree) {
 
-  override protected type CallsStates = CallsStatesBase
+  trait CallsStates extends CallsStatesBase {
+    def recordings: Ref.Synchronized[Map[String, Promise[Throwable, URL]]]
+    def recordingPromise(callId: String): ZIO[Any, Nothing, Promise[Throwable, URL]] =
+      recordings.modifyZIO { map =>
+        map.get(callId) match {
+          case Some(promise) => ZIO.succeed((promise, map))
+          case None          =>
+            for {
+              promise <- Promise.make[Throwable, URL]
+            } yield (promise, map + (callId -> promise))
+        }
+      }
+  }
   override protected def makeCallsStates: ZIO[Any, Nothing, CallsStates] =
     for {
-      statesRef <- Ref.make(Map.empty[String, CallState])
-    } yield new CallsStatesBase {
-      override val states = statesRef
+      statesRef     <- Ref.make(Map.empty[String, CallState])
+      recordingsRef <- Ref.Synchronized.make(Map.empty[String, Promise[Throwable, URL]])
+    } yield new CallsStates {
+      override val states     = statesRef
+      override val recordings = recordingsRef
     }
 
   private val requestValidator = new RequestValidator(twilioAuthToken)
@@ -71,13 +86,17 @@ class TwilioCallStateServer(
   protected case class Result(twiml: List[TwiML], nextCallState: Option[CallState] = None) extends ResultBase {
     override def response(callInfo: CallInfo): Response =
       Response
-        .text(TwiML.responseBody(callInfo, twiml).render)
+        .text(
+          TwiML
+            .responseBody(callInfo = callInfo, nodes = twiml)
+            .render
+        )
         .copy(headers = Headers(Header.ContentType(MediaType.text.html)))
 
     def concat(that: Result) = Result(this.twiml ++ that.twiml, that.nextCallState)
   }
 
-  private def toTwiml(noInput: CallTree.NoContinuation): List[TwiML.Gather.Child] = noInput match {
+  private def toTwiml(noCont: CallTree.NoContinuation): List[TwiML.Gather.Child] = noCont match {
     case CallTree.Pause(length)                      => List(TwiML.Pause(length.toSeconds.toInt))
     case CallTree.Say(text)                          => List(TwiML.Say(text, voice))
     case CallTree.Play(url)                          => List(TwiML.Play(url))
@@ -90,18 +109,22 @@ class TwilioCallStateServer(
     callsStates: CallsStates,
     queryParams: QueryParams
   ): ZIO[CallInfo, CallTree.Failure, RecordingResult] =
-    for {
-      url <-
-        ZIO.getOrFailWith(Left("Recording not available"))(
-          queryParams.getAll("RecordingUrl").headOption.flatMap(URL.decode(_).toOption)
-        )
-    } yield RecordingResult(
-      url = url,
-      terminator = queryParams.getAll("Digits").headOption.flatMap {
-        case "hangup" => Some(RecordingResult.Terminator.Hangup)
-        case other    => DTMF.all.find(_.toString == other).map(RecordingResult.Terminator.Key.apply)
-      }
-    )
+    ZIO.serviceWithZIO[CallInfo] { callInfo =>
+      for {
+        promise <- callsStates.recordingPromise(callInfo.callId)
+        url     <- promise.await.timeoutFail(new TimeoutException)(10.seconds).asRightError
+        _       <- callsStates.recordings.update(_ - callInfo.callId)
+      } yield RecordingResult(
+        url = url,
+        terminator = queryParams.getAll("Digits").headOption.flatMap {
+          case "hangup" => Some(RecordingResult.Terminator.Hangup)
+          case other    => DTMF.all.find(_.toString == other).map(RecordingResult.Terminator.Key.apply)
+        }
+      )
+    }
+
+  private lazy val recordingStatusCallbackPath = rootPath / "recordingStatusCallback"
+  private lazy val recordingStatusCallbackUrl  = URL(recordingStatusCallbackPath)
 
   override protected def interpretTree(callTree: CallTree): Result =
     callTree match {
@@ -120,7 +143,13 @@ class TwilioCallStateServer(
         )
       case record: CallTree.Record                      =>
         Result(
-          List(TwiML.Record(maxLength = record.maxLength.map(_.toSeconds.toInt), finishOnKey = record.finishOnKey)),
+          List(
+            TwiML.Record(
+              maxLength = record.maxLength.map(_.toSeconds.toInt),
+              recordingStatusCallback = recordingStatusCallbackUrl,
+              finishOnKey = record.finishOnKey
+            )
+          ),
           Some(CallState.Recording(record, record.handle))
         )
       case sequence: CallTree.Sequence.WithContinuation =>
@@ -136,4 +165,19 @@ class TwilioCallStateServer(
       from   <- params.queryZIO[String]("From")
       to     <- params.queryZIO[String]("To")
     } yield CallInfo(callId = callId, from = from, to = to)
+
+  override protected def allEndpoints(callsStates: CallsStates) =
+    super.allEndpoints(callsStates) ++
+      Routes(RoutePattern.POST / recordingStatusCallbackPath.encode -> handler { (request: Request) =>
+        for {
+          params  <- request.allParams
+          callId  <- ZIO.getOrFail(params.getAll("CallSid").headOption)
+          status  <- ZIO.getOrFail(params.getAll("RecordingStatus").headOption)
+          promise <- callsStates.recordingPromise(callId)
+          _       <-
+            ZIO.when(status.contains("completed"))(
+              promise.complete(ZIO.getOrFail(params.getAll("RecordingUrl").headOption.flatMap(URL.decode(_).toOption)))
+            )
+        } yield Response.ok
+      })
 }

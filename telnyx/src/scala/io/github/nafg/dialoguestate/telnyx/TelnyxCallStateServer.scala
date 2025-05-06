@@ -41,16 +41,7 @@ class TelnyxCallStateServer(rootPath: Path, mainCallTree: CallTree.Callback, voi
   protected case class Result(texml: List[TeXML], nextCallState: Option[CallState] = None) extends ResultBase {
     override def response(callInfo: CallInfo): Response =
       Response
-        .text(
-          TeXML
-            .responseBody(
-              baseUrl = baseUrl,
-              info =
-                TeXML.ToHtmlInfo(recordingStatusCallbackUrl = recordingStatusCallbackUrl, callInfo = callInfo),
-              nodes = texml
-            )
-            .render
-        )
+        .text(TeXML.responseBody(baseUrl, callInfo, texml).render)
         .copy(headers = Headers(Header.ContentType(MediaType.text.html)))
 
     def concat(that: Result) = Result(this.texml ++ that.texml, that.nextCallState)
@@ -104,12 +95,11 @@ class TelnyxCallStateServer(rootPath: Path, mainCallTree: CallTree.Callback, voi
       case record: CallTree.Record                      =>
         Result(
           List(
-            TeXML
-              .Record(
-                maxLength = record.maxLength.map(_.toSeconds.toInt),
-                recordingStatusCallback = recordingStatusCallbackUrl,
-                finishOnKey = record.finishOnKey
-              )
+            TeXML.Record(
+              maxLength = record.maxLength.map(_.toSeconds.toInt),
+              recordingStatusCallback = recordingStatusCallbackUrl,
+              finishOnKey = record.finishOnKey
+            )
           ),
           Some(CallState.Recording(record, record.handle))
         )

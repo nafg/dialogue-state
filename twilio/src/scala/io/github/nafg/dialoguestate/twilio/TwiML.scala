@@ -10,13 +10,14 @@ import zio.http.{QueryParams, URL}
 
 sealed trait TwiML {
   private[twilio] def toTag: Frag
-  private[twilio] def toHtml(callInfo: CallInfo): Frag
+  private[twilio] def toHtml(info: CallInfo): Frag
 }
 object TwiML       {
   private object tags {
+    val finishOnKey = attr("finishOnKey")
+
     val Gather              = TypedTag[String]("Gather", modifiers = Nil, void = false)
     val actionOnEmptyResult = attr("actionOnEmptyResult")
-    val finishOnKey         = attr("finishOnKey")
     val numDigits           = attr("numDigits")
     val timeout             = attr("timeout")
 
@@ -28,8 +29,9 @@ object TwiML       {
     val Say   = TypedTag[String]("Say", modifiers = Nil, void = false)
     val voice = attr("voice")
 
-    val Record    = TypedTag[String]("Record", modifiers = Nil, void = false)
-    val maxLength = attr("maxLength")
+    val Record                  = TypedTag[String]("Record", modifiers = Nil, void = false)
+    val maxLength               = attr("maxLength")
+    val recordingStatusCallback = attr("recordingStatusCallback")
 
     val Redirect = TypedTag[String]("Redirect", modifiers = Nil, void = false)
 
@@ -58,18 +60,31 @@ object TwiML       {
     for ((k, v) <- callParams(info).map.toSeq; vv <- v)
       yield <.input(^.`type` := "hidden", ^.name := k, ^.value := vv)()
 
-  case class Record(maxLength: Option[Int], finishOnKey: Set[DTMF]) extends TwiML {
+  case class Record(maxLength: Option[Int], finishOnKey: Set[DTMF], recordingStatusCallback: URL) extends TwiML {
     override private[twilio] def toTag: Frag                  =
-      tags.Record(maxLength.map(tags.maxLength := _), tags.finishOnKey := finishOnKey.mkString)
+      tags.Record(
+        maxLength.map(tags.maxLength := _),
+        tags.finishOnKey             := finishOnKey.mkString,
+        tags.recordingStatusCallback := recordingStatusCallback.encode
+      )
     override private[twilio] def toHtml(info: CallInfo): Frag =
       <.form(
         callParamsFields(info),
-        <.input(
-          ^.`type` := "hidden",
-          ^.name   := "RecordingUrl",
-          ^.value  := "https://soundbible.com/mp3/Public%20Transit%20Bus-SoundBible.com-671541921.mp3"
-        ),
-        <.button(^.`type` := "submit")("Submit")
+        <.button(
+          ^.`type`  := "button",
+          ^.onclick :=
+            s"""
+            |fetch('${recordingStatusCallback.encode}', {
+            |  method: 'POST',
+            |  body: new URLSearchParams({
+            |    CallSid: '${info.callId}',
+            |    RecordingStatus: 'completed',
+            |    RecordingUrl: 'https://soundbible.com/mp3/Public%20Transit%20Bus-SoundBible.com-671541921.mp3'
+            | })
+            |})
+            |.then(() => this.form.submit())
+            |""".stripMargin
+        )("Provide recording")
       )
   }
 
@@ -115,15 +130,15 @@ object TwiML       {
       <.a(^.href := url.addQueryParams(callParams(info)).encode)("Redirect")
   }
 
-  private[twilio] def responseBody(info: CallInfo, nodes: List[TwiML]) = {
+  private[twilio] def responseBody(callInfo: CallInfo, nodes: List[TwiML]) = {
     def randomPhone = s"+1888555${1000 + Random.nextInt(8999)}"
     tags.Response(^.color := "transparent")(
       tags.Pause(tags.length := 0)(
-        <.div(^.color.black)(nodes.map(_.toHtml(info))*),
+        <.div(^.color.black)(nodes.map(_.toHtml(callInfo))*),
         <.hr,
         <.a(
           ^.href :=
-            callParams(info.copy(callId = Random.nextInt().toString, from = randomPhone)).encode
+            callParams(callInfo.copy(callId = Random.nextInt().toString, from = randomPhone)).encode
         )("New call")
       ),
       nodes.map(_.toTag)
