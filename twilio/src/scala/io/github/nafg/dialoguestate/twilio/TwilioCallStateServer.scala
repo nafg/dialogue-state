@@ -13,7 +13,8 @@ class TwilioCallStateServer(
   rootUrl: Path,
   mainCallTree: CallTree.Callback,
   twilioAuthToken: String,
-  verifyTwilio: Boolean
+  verifyTwilio: Boolean,
+  voice: Voice
 ) extends CallStateServer(rootUrl, mainCallTree) {
 
   override protected type CallsStates = CallsStatesBase
@@ -65,7 +66,7 @@ class TwilioCallStateServer(
       }
 
   override protected def errorResult(message: String): Result =
-    Result(List(TwiML.Say(message), TwiML.Redirect(baseUrl)))
+    Result(List(TwiML.Say(message, voice), TwiML.Redirect(baseUrl)))
 
   protected case class Result(twiml: List[TwiML], nextCallState: Option[CallState] = None) extends ResultBase {
     override def response(callInfo: CallInfo): Response =
@@ -78,7 +79,7 @@ class TwilioCallStateServer(
 
   private def toTwiml(noInput: CallTree.NoContinuation): List[TwiML.Gather.Child] = noInput match {
     case CallTree.Pause(length)                      => List(TwiML.Pause(length.toSeconds.toInt))
-    case CallTree.Say(text)                          => List(TwiML.Say(text))
+    case CallTree.Say(text)                          => List(TwiML.Say(text, voice))
     case CallTree.Play(url)                          => List(TwiML.Play(url))
     case CallTree.Sequence.NoContinuationOnly(elems) => elems.flatMap(toTwiml)
   }

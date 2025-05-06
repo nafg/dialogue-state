@@ -25,7 +25,8 @@ object TwiML       {
 
     val Play = TypedTag[String]("Play", modifiers = Nil, void = false)
 
-    val Say = TypedTag[String]("Say", modifiers = Nil, void = false)
+    val Say   = TypedTag[String]("Say", modifiers = Nil, void = false)
+    val voice = attr("voice")
 
     val Record    = TypedTag[String]("Record", modifiers = Nil, void = false)
     val maxLength = attr("maxLength")
@@ -43,8 +44,8 @@ object TwiML       {
     override private[twilio] def toHtml(info: CallInfo): Frag = <.span("-" * length)
   }
 
-  case class Say(text: String) extends TwiML with Gather.Child {
-    override private[twilio] def toTag: Frag                  = tags.Say(text)
+  case class Say(text: String, voice: Voice) extends TwiML with Gather.Child {
+    override private[twilio] def toTag: Frag                  = tags.Say(tags.voice := voice.value, text)
     override private[twilio] def toHtml(info: CallInfo): Frag = <.p(text)
   }
 
@@ -84,12 +85,12 @@ object TwiML       {
       )(children.map(_.toTag)*)
     override private[twilio] def toHtml(info: CallInfo): Frag = {
       def childTags(children: List[Gather.Child]): List[Tag] = children match {
-        case Nil                                                              => Nil
-        case Say(s"Press $digits $preposition") :: Say(d) :: Pause(1) :: rest =>
+        case Nil                                                                    => Nil
+        case Say(s"Press $digits $preposition", _) :: Say(d, _) :: Pause(1) :: rest =>
           <.li(<.button(^.`type` := "submit", ^.name := "Digits", ^.value := digits)(s"$preposition $d")) :: childTags(
             rest
           )
-        case other :: rest                                                    =>
+        case other :: rest                                                          =>
           <.li(other.toHtml(info)) :: childTags(rest)
       }
 
