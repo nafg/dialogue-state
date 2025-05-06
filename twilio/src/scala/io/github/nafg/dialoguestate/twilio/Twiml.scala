@@ -65,7 +65,7 @@ object Twiml       {
         callParamsFields(callInfo),
         <.input(
           ^.`type` := "hidden",
-          ^.name   := "RecordingURL",
+          ^.name   := "RecordingUrl",
           ^.value  := "https://soundbible.com/mp3/Public%20Transit%20Bus-SoundBible.com-671541921.mp3"
         ),
         <.button(^.`type` := "submit")("Submit")
