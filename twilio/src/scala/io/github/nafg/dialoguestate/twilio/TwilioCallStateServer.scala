@@ -92,7 +92,7 @@ class TwilioCallStateServer(
     for {
       url <-
         ZIO.getOrFailWith(Left("Recording not available"))(
-          queryParams.getAll("RecordingURL").headOption.flatMap(URL.decode(_).toOption)
+          queryParams.getAll("RecordingUrl").headOption.flatMap(URL.decode(_).toOption)
         )
     } yield RecordingResult(
       url = url,
