@@ -1,4 +1,4 @@
-package io.github.nafg.dialoguestate.twilio
+package io.github.nafg.dialoguestate.twilio.base
 
 import io.github.nafg.dialoguestate.DTMF
 

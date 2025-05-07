@@ -1,6 +1,7 @@
 package io.github.nafg.dialoguestate.telnyx
 
-import io.github.nafg.dialoguestate.telnyx.TagsBundle.*
+import io.github.nafg.dialoguestate.twilio.base.Node
+import io.github.nafg.dialoguestate.twilio.base.TagsBundle.*
 
 import scalatags.Text.TypedTag
 import zio.http.URL

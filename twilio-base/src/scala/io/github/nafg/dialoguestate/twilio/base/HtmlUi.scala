@@ -1,13 +1,13 @@
-package io.github.nafg.dialoguestate.telnyx
+package io.github.nafg.dialoguestate.twilio.base
 
 import scala.util.Random
 
 import io.github.nafg.dialoguestate.CallInfo
-import io.github.nafg.dialoguestate.telnyx.TagsBundle.*
+import io.github.nafg.dialoguestate.twilio.base.TagsBundle.*
 
 import zio.http.QueryParams
 
-private object HtmlUi {
+object HtmlUi {
   def callParams(callInfo: CallInfo) =
     QueryParams("CallSid" -> callInfo.callId, "From" -> callInfo.from, "To" -> callInfo.to)
 

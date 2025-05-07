@@ -1,6 +1,7 @@
 package io.github.nafg.dialoguestate.twilio
 
-import io.github.nafg.dialoguestate.twilio.TagsBundle.*
+import io.github.nafg.dialoguestate.twilio.base.TagsBundle.*
+import io.github.nafg.dialoguestate.twilio.base.Node
 
 import scalatags.Text.TypedTag
 
