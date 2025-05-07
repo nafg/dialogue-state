@@ -97,7 +97,7 @@ object Node       {
             callParams(callInfo.copy(callId = Random.nextInt().toString, from = randomPhone)).encode
         )("New call")
       ),
-      nodes.map(Tags.toTag)
+      nodes.map(Tags.fromNode)
     )
   }
 }

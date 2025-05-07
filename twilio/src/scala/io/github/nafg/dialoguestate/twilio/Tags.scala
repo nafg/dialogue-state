@@ -28,7 +28,7 @@ private object Tags {
 
   val Response = TypedTag[String]("Response", modifiers = Nil, void = false)
 
-  def toTag(node: Node): Frag =
+  def fromNode(node: Node): Frag =
     node match {
       case Node.Pause(len)                                           => Pause(length := len)()
       case Node.Play(url)                                            => Play(url.encode)
@@ -40,7 +40,7 @@ private object Tags {
           finishOnKey         := finishOn.mkString,
           maxLen.map(numDigits := _),
           timeout             := to
-        )(gather.children.map(toTag): _*)
+        )(gather.children.map(fromNode): _*)
       case Node.Record(maxLen, finishOn, recordingStatusCB)          =>
         Record(
           maxLen.map(maxLength := _),
