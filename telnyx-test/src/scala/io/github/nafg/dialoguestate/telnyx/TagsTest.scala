@@ -1,6 +1,7 @@
 package io.github.nafg.dialoguestate.telnyx
 
 import io.github.nafg.dialoguestate.DTMF
+import io.github.nafg.dialoguestate.twilio.base.{Node, Voice}
 
 import zio.http.*
 import zio.test.*
@@ -22,13 +23,13 @@ object TagsTest extends ZIOSpecDefault {
       assertTrue(render(node) == """<Redirect>https://example.com/redirect</Redirect>""")
     },
     test("Say") {
-      val node = Node.Say(text = "Hello world", voice = Voice.man)
+      val node = Node.Say(text = "Hello world", voice = Voice("man"))
       assertTrue(render(node) == """<Say voice="man">Hello world</Say>""")
     },
     test("Gather with actionOnEmptyResult=true") {
       val node =
         Node.Gather(actionOnEmptyResult = true, finishOnKey = Some(DTMF('#')), numDigits = Some(1), timeout = 10)(
-          Node.Say(text = "Press a digit", voice = Voice.man)
+          Node.Say(text = "Press a digit", voice = Voice("man"))
         )
       assertTrue(
         render(node) ==
@@ -38,7 +39,7 @@ object TagsTest extends ZIOSpecDefault {
     test("Gather with actionOnEmptyResult=false") {
       val node =
         Node.Gather(actionOnEmptyResult = false, finishOnKey = Some(DTMF('#')), numDigits = Some(1), timeout = 10)(
-          Node.Say(text = "Press a digit", voice = Voice.man)
+          Node.Say(text = "Press a digit", voice = Voice("man"))
         )
       assertTrue(
         render(node) ==

@@ -3,7 +3,11 @@ package io.github.nafg.dialoguestate
 import zio.http.*
 import zio.{Ref, Task, UIO, ZIO, ZLayer}
 
-abstract class CallStateServer(rootPath: Path, mainCallTree: CallTree.Callback) {
+abstract class CallStateServer(
+  rootPath: Path,
+  mainCallTree: CallTree.Callback,
+  requestVerificationMiddlewareService: RequestVerificationMiddlewareService
+) {
   trait CallsStatesBase {
     def states: Ref[Map[String, CallState]]
   }
@@ -22,8 +26,6 @@ abstract class CallStateServer(rootPath: Path, mainCallTree: CallTree.Callback) 
 
   private val basePath  = rootPath / "call"
   protected val baseUrl = URL(basePath)
-
-  protected def verificationMiddleware: Middleware[Any]
 
   /** Interpret a call tree. The result is used to generate the next HTTP response and determine the next call state.
     *
@@ -47,18 +49,18 @@ abstract class CallStateServer(rootPath: Path, mainCallTree: CallTree.Callback) 
     queryParams: QueryParams
   ): ZIO[CallInfo, CallTree.Failure, Result] =
     callState match {
-      case CallState.Const(tree)                      => ZIO.succeed(interpretTree(tree))
-      case CallState.Digits(tree, handleDigits)       =>
+      case CallState.Ready(tree)             => ZIO.succeed(interpretTree(tree))
+      case CallState.AwaitingDigits(tree)    =>
         ZIO
           .getOrFailWith(Left("Nothing entered"))(digits(queryParams))
-          .flatMap(handleDigits)
+          .flatMap(tree.handle)
           .catchSome { case Left(error) =>
             ZIO.succeed[CallTree](CallTree.Say(error) &: CallTree.Pause() &: tree)
           }
           .map(interpretTree)
-      case CallState.Recording(tree, handleRecording) =>
+      case CallState.AwaitingRecording(tree) =>
         recordingResult(callsStates, queryParams)
-          .flatMap(handleRecording(_))
+          .flatMap(tree.handle)
           .catchSome { case Left(error) =>
             ZIO.succeed(CallTree.Say(error) &: CallTree.Pause() &: tree)
           }
@@ -79,7 +81,7 @@ abstract class CallStateServer(rootPath: Path, mainCallTree: CallTree.Callback) 
     }
 
   protected def allEndpoints(callsStates: CallsStates): Routes[Any, Throwable] =
-    callEndpoint(callsStates) @@ verificationMiddleware ++
+    callEndpoint(callsStates) @@ requestVerificationMiddlewareService.middleware ++
       callsEndpoint(callsStates)
 
   private def callEndpoint(callsStates: CallsStates): Routes[Any, Throwable] = Routes(
@@ -92,7 +94,7 @@ abstract class CallStateServer(rootPath: Path, mainCallTree: CallTree.Callback) 
             (for {
               callState <- callsStates.states.get
                              .map(_.get(callId))
-                             .someOrElseZIO(mainCallTree.map(CallState.Const(_): CallState))
+                             .someOrElseZIO(mainCallTree.map(CallState.Ready(_): CallState))
               params    <- request.allParams.asRightError
               _         <- ZIO.log(request.toString)
               _         <- ZIO.log(params.toString)

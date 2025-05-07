@@ -1,8 +1,8 @@
-package io.github.nafg.dialoguestate.telnyx
+package io.github.nafg.dialoguestate.twilio.base
 
 import scalatags.{DataConverters, Text, text}
 
-private object TagsBundle extends Text.Cap with Text.Aggregate with DataConverters {
+object TagsBundle extends Text.Cap with Text.Aggregate with DataConverters {
   // noinspection NoTargetNameAnnotationForOperatorLikeDefinition
   object < extends text.Tags with text.Tags2 with Text.Cap
   // noinspection NoTargetNameAnnotationForOperatorLikeDefinition

@@ -13,17 +13,18 @@ projects:
     - template-common
     - template-scala-3
   telnyx:
-    dependencies: com.lihaoyi::scalatags:0.13.1
-    dependsOn: dialogue-state-core
+    dependsOn: twilio-base
     extends: template-cross-all
     isTestProject: false
   telnyx-test:
     dependsOn: telnyx
     extends: template-common-test
   twilio:
-    dependencies:
-    - com.lihaoyi::scalatags:0.13.1
-    - com.twilio.sdk:twilio:10.8.0
+    dependencies: com.twilio.sdk:twilio:10.8.0
+    dependsOn: twilio-base
+    extends: template-cross-all
+  twilio-base:
+    dependencies: com.lihaoyi::scalatags:0.13.1
     dependsOn: dialogue-state-core
     extends: template-cross-all
   twilio-test:

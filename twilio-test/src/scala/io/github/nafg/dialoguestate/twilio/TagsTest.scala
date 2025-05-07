@@ -1,6 +1,7 @@
 package io.github.nafg.dialoguestate.twilio
 
 import io.github.nafg.dialoguestate.DTMF
+import io.github.nafg.dialoguestate.twilio.base.{Node, Voice}
 
 import zio.http.*
 import zio.test.*
