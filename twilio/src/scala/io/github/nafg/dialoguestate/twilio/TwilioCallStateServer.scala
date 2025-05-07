@@ -1,20 +1,17 @@
 package io.github.nafg.dialoguestate.twilio
 
 import scala.concurrent.TimeoutException
-import scala.jdk.CollectionConverters.MapHasAsJava
 
 import io.github.nafg.dialoguestate.{CallInfo, CallState, CallStateServer, CallTree, DTMF, RecordingResult, RichRequest}
 
-import com.twilio.security.RequestValidator
 import zio.http.*
-import zio.{Console, Promise, Ref, ZIO, durationInt}
+import zio.{Promise, Ref, ZIO, durationInt}
 
 //noinspection ScalaUnusedSymbol
 class TwilioCallStateServer(
   rootPath: Path,
   mainCallTree: CallTree.Callback,
-  twilioAuthToken: String,
-  verifyTwilio: Boolean,
+  twilioVerificationService: TwilioVerificationService,
   voice: Voice
 ) extends CallStateServer(rootPath, mainCallTree) {
 
@@ -40,45 +37,7 @@ class TwilioCallStateServer(
       override val recordings = recordingsRef
     }
 
-  private val requestValidator = new RequestValidator(twilioAuthToken)
-
-  override protected def verificationMiddleware: Middleware[Any] =
-    if (!verifyTwilio)
-      Middleware.identity
-    else
-      Middleware.allowZIO { (request: Request) =>
-        Console.printLine(request.headers.toList.mkString("\n")).ignoreLogged *>
-          ZIO
-            .exists(request.rawHeader("X-Twilio-Signature")) { signatureHeader =>
-              for {
-                params       <- request.bodyParams
-                url           =
-                  (for {
-                    secure <- request.rawHeader("X-Forwarded-Proto").collect {
-                                case "http"  => false
-                                case "https" => true
-                              }
-                    host   <- request.header(Header.Host)
-                  } yield {
-                    request.url
-                      .copy(kind =
-                        URL.Location.Absolute(
-                          scheme = if (secure) Scheme.HTTPS else Scheme.HTTP,
-                          host = host.hostAddress,
-                          originalPort = None
-                        )
-                      )
-                  })
-                    .getOrElse(request.url)
-                paramsJavaMap = params.map.transform((_, v) => v.lastOption.orNull).asJava
-                _            <- Console.printLine(s"url: ${url.encode}")
-                _            <- Console.printLine(s"params: $paramsJavaMap")
-              } yield requestValidator.validate(url.encode, paramsJavaMap, signatureHeader)
-            }
-            .debug("Twilio verification")
-            .logError
-            .orElseSucceed(false)
-      }
+  override protected def verificationMiddleware = twilioVerificationService.middleware
 
   override protected def errorResult(message: String): Result =
     Result(List(TwiML.Say(message, voice), TwiML.Redirect(baseUrl)))
