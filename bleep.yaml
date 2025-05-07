@@ -16,12 +16,19 @@ projects:
     dependencies: com.lihaoyi::scalatags:0.13.1
     dependsOn: dialogue-state-core
     extends: template-cross-all
+    isTestProject: false
+  telnyx-test:
+    dependsOn: telnyx
+    extends: template-common-test
   twilio:
     dependencies:
     - com.lihaoyi::scalatags:0.13.1
     - com.twilio.sdk:twilio:10.8.0
     dependsOn: dialogue-state-core
     extends: template-cross-all
+  twilio-test:
+    dependsOn: twilio
+    extends: template-common-test
 scripts:
   publish:
     main: io.github.nafg.bleep.plugins.publish.Publish
@@ -33,6 +40,13 @@ templates:
     scala:
       options: -encoding utf8 -feature -unchecked
       strict: true
+  template-common-test:
+    dependencies:
+    - dev.zio::zio-test-sbt:2.1.17
+    - dev.zio::zio-test:2.1.17
+    extends: template-cross-all
+    isTestProject: true
+    testFrameworks: zio.test.sbt.ZTestFramework
   template-cross-all:
     cross:
       scala2:

@@ -29,7 +29,7 @@ private object Tags {
 
   val Response = TypedTag[String]("Response", modifiers = Nil, void = false)
 
-  def toTag(node: Node, baseUrl: URL): Frag =
+  def fromNode(node: Node, baseUrl: URL): Frag =
     node match {
       case Node.Pause(len)                                                 => Pause(length := len)()
       case Node.Play(url)                                                  => Play(url.encode)
@@ -38,11 +38,11 @@ private object Tags {
       case gather @ Node.Gather(actionOnEmptyResult, finishOn, maxLen, to) =>
         val gatherVerb =
           Gather(finishOnKey := finishOn.iterator.mkString, maxLen.map(numDigits := _), timeout := to)(
-            gather.children.map(toTag(_, baseUrl))*
+            gather.children.map(fromNode(_, baseUrl))*
           )
         if (actionOnEmptyResult) gatherVerb
         else
-          frag(gatherVerb, toTag(Node.Redirect(baseUrl), baseUrl))
+          frag(gatherVerb, fromNode(Node.Redirect(baseUrl), baseUrl))
       case Node.Record(maxLen, finishOn, recordingStatusCB)                =>
         Record(
           maxLen.map(maxLength := _),
