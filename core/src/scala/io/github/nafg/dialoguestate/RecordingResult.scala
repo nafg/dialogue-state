@@ -2,7 +2,7 @@ package io.github.nafg.dialoguestate
 
 import zio.http.URL
 
-case class RecordingResult(url: URL, terminator: Option[RecordingResult.Terminator])
+case class RecordingResult(url: URL, terminator: Option[RecordingResult.Terminator] = None)
 object RecordingResult {
   sealed trait Terminator
   object Terminator {
