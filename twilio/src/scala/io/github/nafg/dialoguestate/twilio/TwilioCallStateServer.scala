@@ -40,26 +40,22 @@ class TwilioCallStateServer(
   override protected def verificationMiddleware = twilioVerificationService.middleware
 
   override protected def errorResult(message: String): Result =
-    Result(List(TwiML.Say(message, voice), TwiML.Redirect(baseUrl)))
+    Result(List(Node.Say(message, voice), Node.Redirect(baseUrl)))
 
-  protected case class Result(twiml: List[TwiML], nextCallState: Option[CallState] = None) extends ResultBase {
+  protected case class Result(nodes: List[Node], nextCallState: Option[CallState] = None) extends ResultBase {
     override def response(callInfo: CallInfo): Response =
       Response
-        .text(
-          TwiML
-            .responseBody(callInfo = callInfo, nodes = twiml)
-            .render
-        )
+        .text(Node.responseBody(callInfo, nodes).render)
         .copy(headers = Headers(Header.ContentType(MediaType.text.html)))
 
-    def concat(that: Result) = Result(this.twiml ++ that.twiml, that.nextCallState)
+    def concat(that: Result) = Result(this.nodes ++ that.nodes, that.nextCallState)
   }
 
-  private def toTwiml(noCont: CallTree.NoContinuation): List[TwiML.Gather.Child] = noCont match {
-    case CallTree.Pause(length)                      => List(TwiML.Pause(length.toSeconds.toInt))
-    case CallTree.Say(text)                          => List(TwiML.Say(text, voice))
-    case CallTree.Play(url)                          => List(TwiML.Play(url))
-    case CallTree.Sequence.NoContinuationOnly(elems) => elems.flatMap(toTwiml)
+  private def toNodes(noCont: CallTree.NoContinuation): List[Node.Gather.Child] = noCont match {
+    case CallTree.Pause(length)                      => List(Node.Pause(length.toSeconds.toInt))
+    case CallTree.Say(text)                          => List(Node.Say(text, voice))
+    case CallTree.Play(url)                          => List(Node.Play(url))
+    case CallTree.Sequence.NoContinuationOnly(elems) => elems.flatMap(toNodes)
   }
 
   override protected def digits(queryParams: QueryParams): Option[String] = queryParams.getAll("Digits").headOption
@@ -87,23 +83,23 @@ class TwilioCallStateServer(
 
   override protected def interpretTree(callTree: CallTree): Result =
     callTree match {
-      case noInput: CallTree.NoContinuation             => Result(toTwiml(noInput))
+      case noCont: CallTree.NoContinuation              => Result(toNodes(noCont))
       case gather: CallTree.Gather                      =>
         Result(
           List(
-            TwiML.Gather(
+            Node.Gather(
               actionOnEmptyResult = gather.actionOnEmptyResult,
               finishOnKey = gather.finishOnKey,
               numDigits = gather.numDigits,
               timeout = gather.timeout
-            )(toTwiml(gather.message)*)
+            )(toNodes(gather.message)*)
           ),
           Some(CallState.Digits(gather, gather.handle))
         )
       case record: CallTree.Record                      =>
         Result(
           List(
-            TwiML.Record(
+            Node.Record(
               maxLength = record.maxLength.map(_.toSeconds.toInt),
               recordingStatusCallback = recordingStatusCallbackUrl,
               finishOnKey = record.finishOnKey
