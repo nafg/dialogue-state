@@ -45,7 +45,9 @@ class TwilioCallStateServer(
   protected case class Result(nodes: List[Node], nextCallState: Option[CallState] = None) extends ResultBase {
     override def response(callInfo: CallInfo): Response =
       Response
-        .text(Node.responseBody(callInfo, nodes).render)
+        .text(
+          Tags.polyglotResponse(html = HtmlUi.responseHtml(callInfo, nodes), tags = nodes.map(Tags.fromNode)).render
+        )
         .copy(headers = Headers(Header.ContentType(MediaType.text.html)))
 
     def concat(that: Result) = Result(this.nodes ++ that.nodes, that.nextCallState)

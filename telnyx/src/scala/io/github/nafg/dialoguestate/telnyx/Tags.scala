@@ -52,4 +52,6 @@ private object Tags {
         )
     }
 
+  def polyglotResponse(html: Frag, tags: Seq[Frag]) =
+    Tags.Response(^.color := "transparent")(Tags.Pause(Tags.length := 0)(html), tags)
 }

@@ -28,7 +28,7 @@ private object Tags {
 
   val Response = TypedTag[String]("Response", modifiers = Nil, void = false)
 
-  def fromNode(node: Node): Frag =
+  def fromNode(node: Node): Tag =
     node match {
       case Node.Pause(len)                                           => Pause(length := len)()
       case Node.Play(url)                                            => Play(url.encode)
@@ -48,4 +48,7 @@ private object Tags {
           recordingStatusCallback := recordingStatusCB.encode
         )
     }
+
+  def polyglotResponse(html: Frag, tags: Seq[Tag]) =
+    Tags.Response(^.color := "transparent")(Tags.Pause(Tags.length := 0)(html), tags)
 }
