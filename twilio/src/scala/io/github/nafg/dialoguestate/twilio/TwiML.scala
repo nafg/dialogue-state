@@ -8,11 +8,11 @@ import io.github.nafg.dialoguestate.{CallInfo, DTMF}
 import scalatags.Text.TypedTag
 import zio.http.{QueryParams, URL}
 
-sealed trait Twiml {
-  private[twilio] def toTwimlTag: Frag
+sealed trait TwiML {
+  private[twilio] def toTwiMLTag: Frag
   private[twilio] def toHtml(callInfo: CallInfo): Frag
 }
-object Twiml       {
+object TwiML       {
   private object twiml {
     val Pause  = TypedTag[String]("Pause", modifiers = Nil, void = true)
     val length = attr("length")
@@ -38,18 +38,18 @@ object Twiml       {
   private def callParams(callInfo: CallInfo) =
     QueryParams("CallSid" -> callInfo.callId, "From" -> callInfo.from, "To" -> callInfo.to)
 
-  case class Pause(length: Int = 1) extends Twiml with Gather.Child {
-    override private[twilio] def toTwimlTag: Frag                 = twiml.Pause(twiml.length := length)()
+  case class Pause(length: Int = 1) extends TwiML with Gather.Child {
+    override private[twilio] def toTwiMLTag: Frag                 = twiml.Pause(twiml.length := length)()
     override private[twilio] def toHtml(callInfo: CallInfo): Frag = <.span("-" * length)
   }
 
-  case class Say(text: String) extends Twiml with Gather.Child {
-    override private[twilio] def toTwimlTag: Frag                 = twiml.Say(text)
+  case class Say(text: String) extends TwiML with Gather.Child {
+    override private[twilio] def toTwiMLTag: Frag                 = twiml.Say(text)
     override private[twilio] def toHtml(callInfo: CallInfo): Frag = <.p(text)
   }
 
-  case class Play(url: URL) extends Twiml with Gather.Child {
-    override private[twilio] def toTwimlTag: Frag                 = twiml.Play(url.encode)
+  case class Play(url: URL) extends TwiML with Gather.Child {
+    override private[twilio] def toTwiMLTag: Frag                 = twiml.Play(url.encode)
     override private[twilio] def toHtml(callInfo: CallInfo): Frag = <.audio(^.src := url.encode, ^.controls := true)
   }
 
@@ -57,8 +57,8 @@ object Twiml       {
     for ((k, v) <- callParams(callInfo).map.toSeq; vv <- v)
       yield <.input(^.`type` := "hidden", ^.name := k, ^.value := vv)()
 
-  case class Record(maxLength: Option[Int], finishOnKey: Set[DTMF]) extends Twiml {
-    override private[twilio] def toTwimlTag: Frag                 =
+  case class Record(maxLength: Option[Int], finishOnKey: Set[DTMF]) extends TwiML {
+    override private[twilio] def toTwiMLTag: Frag                 =
       twiml.Record(maxLength.map(twiml.maxLength := _), twiml.finishOnKey := finishOnKey.mkString)
     override private[twilio] def toHtml(callInfo: CallInfo): Frag =
       <.form(
@@ -74,14 +74,14 @@ object Twiml       {
 
   case class Gather(actionOnEmptyResult: Boolean, finishOnKey: Option[DTMF], numDigits: Option[Int], timeout: Int = 5)(
     children: Gather.Child*
-  ) extends Twiml {
-    override private[twilio] def toTwimlTag: Frag                 =
+  ) extends TwiML {
+    override private[twilio] def toTwiMLTag: Frag                 =
       twiml.Gather(
         twiml.actionOnEmptyResult := actionOnEmptyResult,
         twiml.finishOnKey         := finishOnKey.iterator.mkString,
         numDigits.map(twiml.numDigits := _),
         twiml.timeout             := timeout
-      )(children.map(_.toTwimlTag)*)
+      )(children.map(_.toTwiMLTag)*)
     override private[twilio] def toHtml(callInfo: CallInfo): Frag = {
       def childTags(children: List[Gather.Child]): List[Tag] = children match {
         case Nil                                                              => Nil
@@ -105,16 +105,16 @@ object Twiml       {
   }
 
   object Gather {
-    sealed trait Child extends Twiml
+    sealed trait Child extends TwiML
   }
 
-  case class Redirect(url: URL) extends Twiml {
-    override private[twilio] def toTwimlTag: Frag                 = twiml.Redirect(url.encode)
+  case class Redirect(url: URL) extends TwiML {
+    override private[twilio] def toTwiMLTag: Frag                 = twiml.Redirect(url.encode)
     override private[twilio] def toHtml(callInfo: CallInfo): Frag =
       <.a(^.href := url.addQueryParams(callParams(callInfo)).encode)("Redirect")
   }
 
-  private[twilio] def responseBody(callInfo: CallInfo, nodes: List[Twiml]) = {
+  private[twilio] def responseBody(callInfo: CallInfo, nodes: List[TwiML]) = {
     def randomPhone = s"+1888555${1000 + Random.nextInt(8999)}"
     twiml.Response(^.color := "transparent")(
       twiml.Pause(twiml.length := 0)(
@@ -125,7 +125,7 @@ object Twiml       {
             callParams(callInfo.copy(callId = Random.nextInt().toString, from = randomPhone)).encode
         )("New call")
       ),
-      nodes.map(_.toTwimlTag)
+      nodes.map(_.toTwiMLTag)
     )
   }
 }
