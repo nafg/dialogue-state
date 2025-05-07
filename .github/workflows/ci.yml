@@ -18,7 +18,7 @@ jobs:
         with:
           extraFiles: bleep.yaml
       - name: Compile
-        run: bleep compile
+        run: bleep test
 
   publish:
     timeout-minutes: 15
