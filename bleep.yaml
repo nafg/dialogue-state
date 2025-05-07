@@ -7,6 +7,10 @@ projects:
     dependencies: dev.zio::zio-http:3.2.0
     extends: template-cross-all
     folder: ./core
+  dialogue-state-core-test:
+    dependsOn: dialogue-state-core
+    extends: template-common-test
+    folder: ./core-test
   scripts:
     dependencies: io.github.nafg.bleep-plugins::bleep-plugin-publish:0.2.0
     extends:
