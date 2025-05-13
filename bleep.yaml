@@ -24,7 +24,7 @@ projects:
     dependsOn: telnyx
     extends: template-common-test
   twilio:
-    dependencies: com.twilio.sdk:twilio:10.8.0
+    dependencies: com.twilio.sdk:twilio:10.9.0
     dependsOn: twilio-base
     extends: template-cross-all
   twilio-base:
