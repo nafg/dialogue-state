@@ -138,6 +138,5 @@ abstract class CallStateServer(
       callsStates.states.get.map(map => Response.text(map.mkString("\n")))
     })
 
-  // noinspection ScalaUnusedSymbol
   def serve = app.flatMap(Server.serve(_))
 }
