@@ -67,6 +67,14 @@ abstract class TwilioBaseCallStateServer(
     case CallTree.Sequence.NoContinuationOnly(elems) => elems.flatMap(toNodes)
   }
 
+  protected def toNode(record: CallTree.Record.Transcribed) =
+    Node.Record(
+      finishOnKey = record.finishOnKey,
+      maxLength = record.maxLength.map(_.toSeconds.toInt),
+      recordingStatusCallback = URL(transcribedRecordingStatusCallbackPath),
+      transcribeCallback = Some(URL(transcriptionCallbackPath))
+    )
+
   override protected def interpretTree(callTree: CallTree): UIO[Result] =
     callTree match {
       case noCont: CallTree.NoContinuation              => ZIO.succeed(Result(toNodes(noCont)))
@@ -91,16 +99,9 @@ abstract class TwilioBaseCallStateServer(
           promise <- Promise.make[Nothing, RecordingResult.Data.Untranscribed]
         } yield Result(List(node), Some(CallState.AwaitingRecording(record, promise)))
       case record: CallTree.Record.Transcribed          =>
-        val node =
-          Node.Record(
-            finishOnKey = record.finishOnKey,
-            maxLength = record.maxLength.map(_.toSeconds.toInt),
-            recordingStatusCallback = URL(transcribedRecordingStatusCallbackPath),
-            transcribeCallback = Some(URL(transcriptionCallbackPath))
-          )
         for {
           promise <- Promise.make[Nothing, RecordingResult.Data.Transcribed]
-        } yield Result(List(node), Some(CallState.AwaitingTranscribedRecording(record, promise)))
+        } yield Result(List(toNode(record)), Some(CallState.AwaitingTranscribedRecording(record, promise)))
       case sequence: CallTree.Sequence.WithContinuation =>
         ZIO.foldLeft(sequence.elems)(Result(Nil)) { case (result, tree) =>
           interpretTree(tree).map(result.concat)
