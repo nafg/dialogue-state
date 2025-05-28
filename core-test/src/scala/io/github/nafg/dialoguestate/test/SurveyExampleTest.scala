@@ -12,7 +12,8 @@ object SurveyExampleTest extends ZIOSpecDefault {
   private object surveyIntro extends CallTree.Gather(numDigits = Some(1), timeout = 10) {
     override def message: CallTree.NoContinuation =
       CallTree.Say(
-        "Thank you for participating in our customer satisfaction survey. This will take approximately 2 minutes to complete. " +
+        "Thank you for participating in our customer satisfaction survey. " +
+          "This will take approximately 2 minutes to complete. " +
           "Press 1 to continue or 2 to opt out."
       )
 
@@ -139,7 +140,7 @@ object SurveyExampleTest extends ZIOSpecDefault {
 
   private def improvementSuggestionRecording(aspect: String): CallTree = {
     object record extends CallTree.Record {
-      override def handle(result: RecordingResult): CallTree.Callback =
+      override def handle(recordingUrl: URL, terminator: Option[RecordingResult.Terminator]): CallTree.Callback =
         ZIO.succeed(
           CallTree.Say(s"Thank you for your suggestions on how we can improve our $aspect.") &:
             recommendationQuestion
@@ -201,7 +202,7 @@ object SurveyExampleTest extends ZIOSpecDefault {
 
   private val testimonialRecording: CallTree = {
     object record extends CallTree.Record {
-      override def handle(result: RecordingResult): CallTree.Callback =
+      override def handle(recordingUrl: URL, terminator: Option[RecordingResult.Terminator]): CallTree.Callback =
         ZIO.succeed(
           CallTree.Say("Thank you for your testimonial! We really appreciate your support.") &:
             additionalCommentsQuestion
@@ -227,7 +228,7 @@ object SurveyExampleTest extends ZIOSpecDefault {
 
   private val additionalCommentsRecording: CallTree = {
     object record extends CallTree.Record {
-      override def handle(result: RecordingResult): CallTree.Callback =
+      override def handle(recordingUrl: URL, terminator: Option[RecordingResult.Terminator]): CallTree.Callback =
         ZIO.succeed(surveyConclusion)
     }
 
@@ -259,7 +260,7 @@ object SurveyExampleTest extends ZIOSpecDefault {
         _      <- tester.expect("Would you be willing to provide a testimonial")
         _      <- tester.sendDigits("1")
         _      <- tester.expect("Please record your testimonial")
-        _      <- tester.sendRecording(RecordingResult(url"https://example.com/recordings/testimonial/123"))
+        _      <- tester.sendRecording(url"https://example.com/recordings/testimonial/123")
         _      <- tester.expect("Thank you for your testimonial")
         _      <- tester.expect("Would you like to provide any additional comments")
         _      <- tester.sendDigits("2")
@@ -279,7 +280,7 @@ object SurveyExampleTest extends ZIOSpecDefault {
         _      <- tester.sendDigits("3")
         _      <- tester.expect("We're sorry about the customer service issues")
         _      <- tester.expect("Please tell us how we could improve")
-        _      <- tester.sendRecording(RecordingResult(url"https://example.com/recordings/improvement/456"))
+        _      <- tester.sendRecording(url"https://example.com/recordings/improvement/456")
         _      <- tester.expect("Thank you for your suggestions")
         _      <- tester.expect("On a scale of 0 to 10, how likely are you to recommend")
         _      <- tester.sendDigits("3")
@@ -287,7 +288,7 @@ object SurveyExampleTest extends ZIOSpecDefault {
         _      <- tester.expect("Would you like to provide any additional comments")
         _      <- tester.sendDigits("1")
         _      <- tester.expect("Please record your additional comments")
-        _      <- tester.sendRecording(RecordingResult(url"https://example.com/recordings/comments/789"))
+        _      <- tester.sendRecording(url"https://example.com/recordings/comments/789")
         _      <- tester.expect("Thank you for completing our customer satisfaction survey")
       } yield assertCompletes
     },
@@ -312,7 +313,7 @@ object SurveyExampleTest extends ZIOSpecDefault {
         _      <- tester.sendDigits("2")
         _      <- tester.expect("Thank you for your feedback")
         _      <- tester.expect("Please tell us how we could improve")
-        _      <- tester.sendRecording(RecordingResult(url"https://example.com/recordings/neutral/123"))
+        _      <- tester.sendRecording(url"https://example.com/recordings/neutral/123")
         _      <- tester.expect("Thank you for your suggestions")
         _      <- tester.expect("On a scale of 0 to 10, how likely are you to recommend")
         _      <- tester.sendDigits("7")

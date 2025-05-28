@@ -1,7 +1,7 @@
 package io.github.nafg.dialoguestate
 
 import zio.http.*
-import zio.{Ref, Task, UIO, ZIO, ZLayer}
+import zio.{Promise, Ref, Task, UIO, ZIO, ZLayer, durationInt}
 
 abstract class CallStateServer(
   rootPath: Path,
@@ -34,39 +34,51 @@ abstract class CallStateServer(
     * @return
     *   The result of interpreting the call tree
     */
-  protected def interpretTree(callTree: CallTree): Result
+  protected def interpretTree(callTree: CallTree): UIO[Result]
 
   protected def digits(queryParams: QueryParams): Option[String]
 
   protected def recordingResult(
-    callsStates: CallsStates,
-    queryParams: QueryParams
-  ): ZIO[CallInfo, CallTree.Failure, RecordingResult]
+    queryParams: QueryParams,
+    promise: Promise[Nothing, RecordingResult.Data.Untranscribed]
+  ): UIO[RecordingResult.Untranscribed]
+
+  protected def transcribedRecordingResult(
+    queryParams: QueryParams,
+    promise: Promise[Nothing, RecordingResult.Data.Transcribed]
+  ): UIO[RecordingResult.Transcribed]
 
   private def interpretState(
     callState: CallState,
-    callsStates: CallsStates,
     queryParams: QueryParams
-  ): ZIO[CallInfo, CallTree.Failure, Result] =
-    callState match {
-      case CallState.Ready(tree)             => ZIO.succeed(interpretTree(tree))
-      case CallState.AwaitingDigits(tree)    =>
-        ZIO
-          .getOrFailWith(Left("Nothing entered"))(digits(queryParams))
-          .flatMap(tree.handle)
-          .catchSome { case Left(error) =>
-            ZIO.succeed[CallTree](CallTree.Say(error) &: CallTree.Pause() &: tree)
-          }
-          .map(interpretTree)
-      case CallState.AwaitingRecording(tree) =>
-        recordingResult(callsStates, queryParams)
-          .flatMap(tree.handle)
-          .catchSome { case Left(error) =>
-            ZIO.succeed(CallTree.Say(error) &: CallTree.Pause() &: tree)
-          }
-          .map(interpretTree)
+  ): ZIO[CallInfo, Either[String, Throwable], Result] = {
+    def postHandle(callback: CallTree.Callback): ZIO[CallInfo, Right[Nothing, Throwable], Result] =
+      callback
+        .catchAll {
+          case Left(str)        => ZIO.succeed(CallTree.Say(str) &: CallTree.Pause() &: callState.callTree)
+          case Right(throwable) => ZIO.fail(Right(throwable))
+        }
+        .flatMap(interpretTree)
 
+    def timeoutOrRetry[A](result: UIO[A]): ZIO[Any, Left[String, Nothing], A] =
+      result.timeoutFail(Left("Please wait..."))(5.seconds)
+
+    callState match {
+      case CallState.Ready(tree)                                 => postHandle(ZIO.succeed(tree))
+      case CallState.AwaitingDigits(tree)                        =>
+        postHandle(
+          ZIO
+            .getOrFailWith(Left("Nothing entered"))(digits(queryParams))
+            .flatMap(tree.handle)
+        )
+      case CallState.AwaitingRecording(tree, promise)            =>
+        timeoutOrRetry(recordingResult(queryParams, promise))
+          .flatMap(result => postHandle(tree.handle(result)))
+      case CallState.AwaitingTranscribedRecording(tree, promise) =>
+        timeoutOrRetry(transcribedRecordingResult(queryParams, promise))
+          .flatMap(result => postHandle(tree.handle(result)))
     }
+  }
 
   protected def callInfo(request: Request): Task[CallInfo]
 
@@ -98,7 +110,7 @@ abstract class CallStateServer(
               params    <- request.allParams.asRightError
               _         <- ZIO.log(request.toString)
               _         <- ZIO.log(params.toString)
-              result    <- interpretState(callState, callsStates, params)
+              result    <- interpretState(callState, params)
               _         <- callsStates.states.update { map =>
                              result.nextCallState match {
                                case Some(tree) => map + (callId -> tree)

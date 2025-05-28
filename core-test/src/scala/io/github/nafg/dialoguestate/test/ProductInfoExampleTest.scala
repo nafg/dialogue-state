@@ -171,7 +171,7 @@ object ProductInfoExampleTest extends ZIOSpecDefault {
 
   private val problemReportingTree: CallTree = {
     object record extends CallTree.Record {
-      override def handle(result: RecordingResult): CallTree.Callback = {
+      override def handle(recordingUrl: URL, terminator: Option[RecordingResult.Terminator]): CallTree.Callback = {
         object responseTree extends CallTree.Gather(numDigits = Some(1), timeout = 8) {
           override def message: CallTree.NoContinuation = CallTree.Say("")
 
@@ -324,7 +324,7 @@ object ProductInfoExampleTest extends ZIOSpecDefault {
         _      <- tester.sendDigits("3")
         _      <- tester.expect("We're sorry you're experiencing an issue")
         _      <- tester.expect("Please describe the problem")
-        _      <- tester.sendRecording(RecordingResult(url"https://example.com/recordings/problem/123"))
+        _      <- tester.sendRecording(url"https://example.com/recordings/problem/123")
         _      <- tester.expect("Thank you for reporting the issue")
         _      <- tester.expect("Press 1 to return to the main menu")
         _      <- tester.sendDigits("1")

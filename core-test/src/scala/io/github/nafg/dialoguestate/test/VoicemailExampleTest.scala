@@ -12,7 +12,8 @@ object VoicemailExampleTest extends ZIOSpecDefault {
   object VoicemailTree extends CallTree.Gather(numDigits = Some(1), timeout = 10) {
     override def message: CallTree.NoContinuation =
       CallTree.Say(
-        "Welcome to the voicemail system. Press 1 to leave a message, 2 to leave an urgent message, or 3 to leave feedback."
+        "Welcome to the voicemail system. " +
+          "Press 1 to leave a message, 2 to leave an urgent message, or 3 to leave feedback."
       )
 
     override def handle: String => CallTree.Callback = {
@@ -25,9 +26,9 @@ object VoicemailExampleTest extends ZIOSpecDefault {
 
   private val standardRecording: CallTree = {
     object record extends CallTree.Record {
-      override def handle(result: RecordingResult): CallTree.Callback =
+      override def handle(recordingUrl: URL, terminator: Option[RecordingResult.Terminator]): CallTree.Callback =
         ZIO.succeed(
-          CallTree.Say(s"Thank you for your message. It was recorded at ${result.url.encode}.") &:
+          CallTree.Say(s"Thank you for your message. It was recorded at ${recordingUrl.encode}.") &:
             CallTree.Say("Your message will be delivered to the recipient.") &:
             confirmationMenu
         )
@@ -38,9 +39,9 @@ object VoicemailExampleTest extends ZIOSpecDefault {
 
   private val urgentRecording: CallTree = {
     object record extends CallTree.Record {
-      override def handle(result: RecordingResult): CallTree.Callback =
+      override def handle(recordingUrl: URL, terminator: Option[RecordingResult.Terminator]): CallTree.Callback =
         ZIO.succeed(
-          CallTree.Say(s"Thank you for your urgent message. It was recorded at ${result.url.encode}.") &:
+          CallTree.Say(s"Thank you for your urgent message. It was recorded at ${recordingUrl.encode}.") &:
             CallTree.Say("Your message will be marked as urgent and delivered immediately.") &:
             confirmationMenu
         )
@@ -51,9 +52,9 @@ object VoicemailExampleTest extends ZIOSpecDefault {
 
   private val feedbackRecording: CallTree = {
     object record extends CallTree.Record {
-      override def handle(result: RecordingResult): CallTree.Callback =
+      override def handle(recordingUrl: URL, terminator: Option[RecordingResult.Terminator]): CallTree.Callback =
         ZIO.succeed(
-          CallTree.Say(s"Thank you for your feedback. It was recorded at ${result.url.encode}.") &:
+          CallTree.Say(s"Thank you for your feedback. It was recorded at ${recordingUrl.encode}.") &:
             CallTree.Say("Your feedback will be reviewed by our team.") &:
             confirmationMenu
         )
@@ -81,7 +82,7 @@ object VoicemailExampleTest extends ZIOSpecDefault {
         _      <- tester.expect("Welcome to the voicemail system")
         _      <- tester.sendDigits("1")
         _      <- tester.expect("Please leave your message after the tone")
-        _      <- tester.sendRecording(RecordingResult(url"https://example.com/recordings/standard/123"))
+        _      <- tester.sendRecording(url"https://example.com/recordings/standard/123")
         _      <- tester.expect("Thank you for your message")
         _      <- tester.expect("Your message will be delivered")
         _      <- tester.expect("Press 1 to listen")
@@ -95,7 +96,7 @@ object VoicemailExampleTest extends ZIOSpecDefault {
         _      <- tester.expect("Welcome to the voicemail system")
         _      <- tester.sendDigits("2")
         _      <- tester.expect("Please leave your urgent message")
-        _      <- tester.sendRecording(RecordingResult(url"https://example.com/recordings/urgent/456"))
+        _      <- tester.sendRecording(url"https://example.com/recordings/urgent/456")
         _      <- tester.expect("Thank you for your urgent message")
         _      <- tester.expect("Your message will be marked as urgent")
         _      <- tester.expect("Press 1 to listen")
@@ -109,7 +110,7 @@ object VoicemailExampleTest extends ZIOSpecDefault {
         _      <- tester.expect("Welcome to the voicemail system")
         _      <- tester.sendDigits("3")
         _      <- tester.expect("Please leave your feedback")
-        _      <- tester.sendRecording(RecordingResult(url"https://example.com/recordings/feedback/789"))
+        _      <- tester.sendRecording(url"https://example.com/recordings/feedback/789")
         _      <- tester.expect("Thank you for your feedback")
         _      <- tester.expect("Your feedback will be reviewed")
         _      <- tester.expect("Press 1 to listen")
@@ -123,15 +124,15 @@ object VoicemailExampleTest extends ZIOSpecDefault {
         _      <- tester.expect("Welcome to the voicemail system")
         _      <- tester.sendDigits("1")
         _      <- tester.expect("Please leave your message")
-        _      <- tester.sendRecording(RecordingResult(url"https://example.com/recordings/123"))
+        _      <- tester.sendRecording(url"https://example.com/recordings/123")
         _      <- tester.expect("Thank you for your message")
         _      <- tester.expect("Press 1 to listen")
         _      <- tester.sendDigits("2")                           // Re-record
         _      <- tester.expect("Let's try again")
-        _      <- tester.expect("Welcome to the voicemail system") // Back to main menu
+        _      <- tester.expect("Welcome to the voicemail system") // Back to the main menu
         _      <- tester.sendDigits("1")                           // Choose standard recording again
         _      <- tester.expect("Please leave your message")
-        _      <- tester.sendRecording(RecordingResult(url"https://example.com/recordings/456"))
+        _      <- tester.sendRecording(url"https://example.com/recordings/456")
         _      <- tester.expect("Thank you for your message")
         _      <- tester.sendDigits("3")                           // Finish
         _      <- tester.expect("Thank you for using our voicemail system")

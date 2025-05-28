@@ -39,20 +39,35 @@ object HtmlUi {
           <.button(^.`type` := "submit")("Submit")
         )
       )
-    case Node.Record(maxLength, finishOnKey, recordingStatusCallback)               =>
+    case Node.Record(_, _, recordingStatusCallback, transcribeCallback)             =>
       <.form(
         callParamsFields(info),
         <.button(
           ^.`type`  := "button",
           ^.onclick :=
             // language=javascript
-            s"""fetch('${recordingStatusCallback.encode}', {
+            s"""const recordingUrl = 'https://soundbible.com/mp3/Public%20Transit%20Bus-SoundBible.com-671541921.mp3';
+               |fetch('${recordingStatusCallback.encode}', {
                |  method: 'POST',
                |  body: new URLSearchParams({
                |    CallSid: '${info.callId}',
                |    RecordingStatus: 'completed',
-               |    RecordingUrl: 'https://soundbible.com/mp3/Public%20Transit%20Bus-SoundBible.com-671541921.mp3'
+               |    RecordingUrl: recordingUrl
                | })
+               |})
+               |.then(() => {
+               |  const transcribeCallback = ${transcribeCallback.fold("null")("'" + _.encode + "'")}
+               |  if (transcribeCallback) {
+               |    return fetch(transcribeCallback, {
+               |      method: 'POST',
+               |      body: new URLSearchParams({
+               |        CallSid: '${info.callId}',
+               |        RecordingUrl: recordingUrl,
+               |        TranscriptionStatus: 'completed',
+               |        TranscriptionText: 'Hello this is a test transcription'
+               |      })
+               |    })
+               |  }
                |})
                |.then(() => this.form.submit())
                |""".stripMargin

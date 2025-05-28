@@ -274,7 +274,7 @@ object ComplexIvrExampleTest extends ZIOSpecDefault {
 
   private val leaveMessageTree: CallTree = {
     val record = new CallTree.Record {
-      override def handle(result: RecordingResult): CallTree.Callback =
+      override def handle(recordingUrl: URL, terminator: Option[RecordingResult.Terminator]): CallTree.Callback =
         ZIO.succeed(
           CallTree
             .Say("Thank you for your message. A customer service representative will contact you within 24 hours.") &:
@@ -366,7 +366,7 @@ object ComplexIvrExampleTest extends ZIOSpecDefault {
         _      <- tester.expect("Customer Service Menu")
         _      <- tester.sendDigits("3")
         _      <- tester.expect("Please leave your message")
-        _      <- tester.sendRecording(RecordingResult(url"https://example.com/recordings/message/123"))
+        _      <- tester.sendRecording(url"https://example.com/recordings/message/123")
         _      <- tester.expect("Thank you for your message")
         _      <- tester.expect("A customer service representative will contact you")
         _      <- tester.sendDigits("0")

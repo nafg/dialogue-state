@@ -31,9 +31,9 @@ object SimpleMenuExampleTest extends ZIOSpecDefault {
 
   private val recordMessageTree: CallTree = {
     val record = new CallTree.Record {
-      override def handle(result: RecordingResult): CallTree.Callback =
+      override def handle(recordingUrl: URL, terminator: Option[RecordingResult.Terminator]): CallTree.Callback =
         ZIO.succeed(
-          CallTree.Say(s"Thank you for your message. It was recorded at ${result.url.encode}.") &:
+          CallTree.Say(s"Thank you for your message. It was recorded at ${recordingUrl.encode}.") &:
             CallTree.Say("A representative will listen to your message and get back to you within 24 hours.")
         )
     }
@@ -77,7 +77,7 @@ object SimpleMenuExampleTest extends ZIOSpecDefault {
         _      <- tester.expect("Welcome to the test menu")
         _      <- tester.sendDigits("3")
         _      <- tester.expect("Please record your message")
-        _      <- tester.sendRecording(RecordingResult(url"https://example.com/recordings/123"))
+        _      <- tester.sendRecording(url"https://example.com/recordings/123")
         _      <- tester.expect("Thank you for your message")
         _      <- tester.expect("A representative will listen to your message")
       } yield assertCompletes

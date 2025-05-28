@@ -52,7 +52,7 @@ object CallTree {
     case class WithContinuation(before: List[NoContinuation], hasContinuation: HasContinuation)
         extends Sequence[true]
         with HasContinuation {
-      override def elems = before ++ List(hasContinuation)
+      override def elems = before :+ hasContinuation
     }
     case class NoContinuationOnly(override val elems: List[NoContinuation]) extends Sequence[false] with NoContinuation
   }
@@ -70,7 +70,23 @@ object CallTree {
 
   abstract class Record(val maxLength: Option[Duration] = None, val finishOnKey: Set[DTMF] = Set('#'))
       extends CallTree.HasContinuation {
-    def handle(result: RecordingResult): Callback
+    def handle(recordingUrl: URL, terminator: Option[RecordingResult.Terminator]): Callback
+
+    final def handle(result: RecordingResult.Untranscribed): Callback =
+      handle(result.data.recordingUrl, result.terminator)
+  }
+  object Record                        {
+    abstract class Transcribed(val maxLength: Option[Duration] = None, val finishOnKey: Set[DTMF] = Set('#'))
+        extends CallTree.HasContinuation {
+      def handle(
+        recordingUrl: URL,
+        transcriptionText: Option[String],
+        terminator: Option[RecordingResult.Terminator]
+      ): Callback
+
+      final def handle(result: RecordingResult.Transcribed): Callback =
+        handle(result.data.recordingUrl, result.data.transcriptionText, result.terminator)
+    }
   }
 
   /** @param actionOnEmptyResult
