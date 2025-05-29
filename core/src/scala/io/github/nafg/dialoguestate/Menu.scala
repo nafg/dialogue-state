@@ -6,7 +6,11 @@ import zio.ZIO
 import zio.prelude.NonEmptyList
 
 abstract class Menu[A: ToText](title: CallTree.NoContinuation, choices: NonEmptyList[A], preposition: String = "for")
-    extends CallTree.Gather(actionOnEmptyResult = true, finishOnKey = None) {
+    extends CallTree.Gather(
+      actionOnEmptyResult = true,
+      finishOnKey = None,
+      numDigits = Some((choices.length + 1).toString.length)
+    ) {
 
   private val withNums = LazyList.from(1).map(_.toString).zip(choices.toCons)
 
