@@ -123,7 +123,7 @@ abstract class CallStateServer(
 
   private def callsEndpoint(callsStates: CallsStates): Routes[Any, Nothing] =
     Routes(RoutePattern.GET / rootPath.encode / "calls" -> handler {
-      callsStates.states.get.map { map => Response.text(map.mkString("\n")) }
+      callsStates.states.get.map(map => Response.text(map.mkString("\n")))
     })
 
   // noinspection ScalaUnusedSymbol
