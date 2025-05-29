@@ -18,5 +18,10 @@ object Node {
     sealed trait Child extends Node
   }
 
-  case class Record(maxLength: Option[Int], finishOnKey: Set[DTMF], recordingStatusCallback: URL) extends Node
+  case class Record(
+    finishOnKey: Set[DTMF],
+    maxLength: Option[Int],
+    recordingStatusCallback: URL,
+    transcribeCallback: Option[URL]
+  ) extends Node
 }

@@ -1,7 +1,9 @@
 package io.github.nafg.dialoguestate.test
 
-import io.github.nafg.dialoguestate._
-import zio._
+import io.github.nafg.dialoguestate.*
+import io.github.nafg.dialoguestate.CallTree.{Record, Sequence}
+
+import zio.*
 import zio.http.URL
 
 /** A framework for testing CallTree programs by simulating a caller's interaction.
@@ -17,10 +19,10 @@ object CallTreeTester {
     */
   sealed trait Node
   object Node {
-    case class Pause(length: Int = 1)                                                               extends Node
-    case class Play(url: URL)                                                                       extends Node
-    case class Say(text: String, voice: String)                                                     extends Node
-    case class Record(maxLength: Option[Int], finishOnKey: Set[DTMF], recordingStatusCallback: URL) extends Node
+    case class Pause()           extends Node
+    case class Play()            extends Node
+    case class Say(text: String) extends Node
+    case class Record()          extends Node
   }
 
   /** Represents the current state of a call during testing
@@ -39,6 +41,10 @@ object CallTreeTester {
     /** The call is waiting for a recording to complete
       */
     case class AwaitingRecording(record: CallTree.Record) extends TestCallState
+
+    /** The call is waiting for a recording to complete
+      */
+    case class AwaitingTranscribedRecording(record: CallTree.Record.Transcribed) extends TestCallState
 
     /** The call has ended
       */
@@ -65,92 +71,45 @@ object CallTreeTester {
       case other => ZIO.succeed(other)
     }
 
+    /** Converts a CallTree.NoContinuation to a list of Nodes
+      */
+    private def toNodes(noCont: CallTree.NoContinuation): List[Node] = noCont match {
+      case CallTree.Pause(length)                      => List(Node.Pause())
+      case CallTree.Say(text)                          => List(Node.Say(text))
+      case CallTree.Play(url)                          => List(Node.Play())
+      case CallTree.Sequence.NoContinuationOnly(elems) => elems.flatMap(toNodes)
+    }
+
     /** Interprets a CallTree and returns the nodes to be rendered and the next state
       */
     private def interpretTree(callTree: CallTree): UIO[(List[Node], Option[TestCallState])] =
       callTree match {
-        case noCont: CallTree.NoContinuation =>
-          ZIO.succeed((toNodes(noCont), Some(TestCallState.Ready(CallTree.empty))))
-
-        case gather: CallTree.Gather =>
+        case noCont: CallTree.NoContinuation              => ZIO.succeed((toNodes(noCont), None))
+        case gather: CallTree.Gather                      =>
           val nodes = toNodes(gather.message)
           ZIO.succeed((nodes, Some(TestCallState.AwaitingDigits(gather, nodes))))
-
-        case record: CallTree.Record =>
-          ZIO.succeed(
-            (
-              List(
-                Node.Record(
-                  maxLength = record.maxLength.map(_.toSeconds.toInt),
-                  finishOnKey = record.finishOnKey,
-                  recordingStatusCallback = URL.empty
-                )
-              ),
-              Some(TestCallState.AwaitingRecording(record))
-            )
-          )
-
+        case record: CallTree.Record                      =>
+          ZIO.succeed((List(Node.Record()), Some(TestCallState.AwaitingRecording(record))))
+        case record: CallTree.Record.Transcribed          =>
+          ZIO.succeed((List(Node.Record()), Some(TestCallState.AwaitingTranscribedRecording(record))))
         case sequence: CallTree.Sequence.WithContinuation =>
-          // First, check if the sequence contains a Record or Gather
-          val hasRecordOrGather = sequence.elems.exists {
-            case _: CallTree.Record => true
-            case _: CallTree.Gather => true
-            case _                  => false
+          ZIO.foldLeft(sequence.elems)(List.empty[Node] -> Option.empty[TestCallState]) {
+            case accNodes -> Some(state) -> _ => ZIO.succeed((accNodes, Some(state)))
+            case accNodes -> None -> tree     =>
+              val workflow = tree match {
+                case seq: Sequence.WithContinuation  => interpretTree(seq)
+                case noCont: CallTree.NoContinuation => ZIO.succeed((toNodes(noCont), None))
+                case gather: CallTree.Gather         =>
+                  val messageNodes = toNodes(gather.message)
+                  ZIO.succeed((messageNodes, Some(TestCallState.AwaitingDigits(gather, messageNodes))))
+                case record: CallTree.Record         =>
+                  ZIO.succeed((List(Node.Record()), Some(TestCallState.AwaitingRecording(record))))
+                case record: Record.Transcribed      =>
+                  ZIO.succeed((List(Node.Record()), Some(TestCallState.AwaitingTranscribedRecording(record))))
+              }
+              workflow.map { case (nodes, nextState) => (accNodes ++ nodes, nextState) }
           }
-
-          if (hasRecordOrGather)
-            // If it contains a Record or Gather, process each element until we find one
-            sequence.elems.foldLeft(ZIO.succeed((List.empty[Node], Option.empty[TestCallState]))) { case (acc, tree) =>
-              acc.flatMap {
-                case (accNodes, None) =>
-                  tree match {
-                    case noCont: CallTree.NoContinuation         =>
-                      ZIO.succeed((accNodes ++ toNodes(noCont), None))
-                    case gather: CallTree.Gather                 =>
-                      val nodes = toNodes(gather.message)
-                      ZIO.succeed((accNodes ++ nodes, Some(TestCallState.AwaitingDigits(gather, nodes))))
-                    case record: CallTree.Record                 =>
-                      ZIO.succeed(
-                        (
-                          accNodes ++ List(
-                            Node.Record(
-                              maxLength = record.maxLength.map(_.toSeconds.toInt),
-                              finishOnKey = record.finishOnKey,
-                              recordingStatusCallback = URL.empty
-                            )
-                          ),
-                          Some(TestCallState.AwaitingRecording(record))
-                        )
-                      )
-                    case seq: CallTree.Sequence.WithContinuation =>
-                      interpretTree(seq).map { case (nodes, nextState) =>
-                        (accNodes ++ nodes, nextState)
-                      }
-                  }
-                case (accNodes, some) => ZIO.succeed((accNodes, some))
-              }
-            }
-          else
-            // If it doesn't contain a Record or Gather, process all elements
-            sequence.elems.foldLeft(ZIO.succeed((List.empty[Node], Option.empty[TestCallState]))) { case (acc, tree) =>
-              acc.flatMap {
-                case (accNodes, None) =>
-                  interpretTree(tree).map { case (nodes, nextState) =>
-                    (accNodes ++ nodes, nextState)
-                  }
-                case (accNodes, some) => ZIO.succeed((accNodes, some))
-              }
-            }
       }
-
-    /** Converts a CallTree.NoContinuation to a list of Nodes
-      */
-    private def toNodes(noCont: CallTree.NoContinuation): List[Node] = noCont match {
-      case CallTree.Pause(length)                      => List(Node.Pause(length.toSeconds.toInt))
-      case CallTree.Say(text)                          => List(Node.Say(text, "neutral"))
-      case CallTree.Play(url)                          => List(Node.Play(url))
-      case CallTree.Sequence.NoContinuationOnly(elems) => elems.flatMap(toNodes)
-    }
 
     /** Advances the call to the next state
       */
@@ -187,12 +146,29 @@ object CallTreeTester {
 
     /** Expects that the call is waiting for a recording and provides the specified recording result
       */
-    def sendRecording(recordingResult: RecordingResult): UIO[TestCallState] =
+    def sendRecording(recordingURL: URL, terminator: Option[RecordingResult.Terminator] = None): UIO[TestCallState] =
       currentState.flatMap {
-        case TestCallState.AwaitingRecording(record) => evalCallback(record.handle(recordingResult), record)
-        case TestCallState.Ready(_)                  => advance *> sendRecording(recordingResult)
+        case TestCallState.AwaitingRecording(record) => evalCallback(record.handle(recordingURL, terminator), record)
+        case TestCallState.Ready(_)                  => advance *> sendRecording(recordingURL, terminator)
         case other                                   =>
           ZIO.die(new AssertionError(s"Expected AwaitingRecording state but got $other"))
+      }
+
+    /** Expects that the call is waiting for a transcribed recording and provides the specified recording result
+      */
+    def sendTranscribedRecording(
+      recordingURL: URL,
+      transcriptionText: Option[String],
+      terminator: Option[RecordingResult.Terminator] = None
+    ): UIO[TestCallState] =
+      currentState.flatMap {
+        case TestCallState.AwaitingTranscribedRecording(record) =>
+          evalCallback(record.handle(recordingURL, transcriptionText, terminator), record)
+        case TestCallState.Ready(_)                             =>
+          advance *>
+            sendTranscribedRecording(recordingURL, transcriptionText, terminator)
+        case other                                              =>
+          ZIO.die(new AssertionError(s"Expected AwaitingTranscribedRecording state but got $other"))
       }
 
     /** Expects that the call has ended
@@ -209,14 +185,14 @@ object CallTreeTester {
       currentState.flatMap {
         case TestCallState.Ready(callTree)                                  =>
           interpretTree(callTree).flatMap { case (nodes, _) =>
-            val sayNodes = nodes.collect { case Node.Say(t, _) => t }
+            val sayNodes = nodes.collect { case Node.Say(t) => t }
             if (sayNodes.exists(_.contains(text)))
               ZIO.succeed(TestCallState.Ready(callTree))
             else
               ZIO.die(new AssertionError(s"Expected to hear '$text' but got ${sayNodes.mkString(", ")}"))
           }
         case awaitingDigits @ TestCallState.AwaitingDigits(gather, message) =>
-          val sayNodes = message.collect { case Node.Say(t, _) => t }
+          val sayNodes = message.collect { case Node.Say(t) => t }
           if (sayNodes.exists(_.contains(text)))
             ZIO.succeed(awaitingDigits)
           else
@@ -225,6 +201,8 @@ object CallTreeTester {
           ZIO.die(new AssertionError(s"Expected to hear '$text' but call has ended"))
         case TestCallState.AwaitingRecording(_)                             =>
           ZIO.die(new AssertionError(s"Expected to hear '$text' but call is awaiting recording"))
+        case TestCallState.AwaitingTranscribedRecording(_)                  =>
+          ZIO.die(new AssertionError(s"Expected to hear '$text' but call is awaiting transcribed recording"))
       }
   }
 

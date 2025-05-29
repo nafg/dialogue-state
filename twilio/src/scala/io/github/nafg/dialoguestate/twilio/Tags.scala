@@ -24,6 +24,8 @@ private object Tags {
   val Record                  = TypedTag[String]("Record", modifiers = Nil, void = false)
   val maxLength               = attr("maxLength")
   val recordingStatusCallback = attr("recordingStatusCallback")
+  val transcribe              = attr("transcribe")
+  val transcribeCallback      = attr("transcribeCallback")
 
   val Redirect = TypedTag[String]("Redirect", modifiers = Nil, void = false)
 
@@ -31,22 +33,26 @@ private object Tags {
 
   def fromNode(node: Node): Tag =
     node match {
-      case Node.Pause(len)                                           => Pause(length := len)()
-      case Node.Play(url)                                            => Play(url.encode)
-      case Node.Redirect(url)                                        => Redirect(url.encode)
-      case Node.Say(text, v)                                         => Say(voice := v.value, text)
-      case gather @ Node.Gather(actionOnEmpty, finishOn, maxLen, to) =>
+      case Node.Pause(len)                                                => Pause(length := len)()
+      case Node.Play(url)                                                 => Play(url.encode)
+      case Node.Redirect(url)                                             => Redirect(url.encode)
+      case Node.Say(text, v)                                              => Say(voice := v.value, text)
+      case gather @ Node.Gather(actionOnEmpty, finishOn, maxLen, to)      =>
         Gather(
           actionOnEmptyResult := actionOnEmpty,
           finishOnKey         := finishOn.mkString,
           maxLen.map(numDigits := _),
           timeout             := to
         )(gather.children.map(fromNode): _*)
-      case Node.Record(maxLen, finishOn, recordingStatusCB)          =>
+      case Node.Record(finishOn, maxLen, recordingStatusCB, transcribeCB) =>
         Record(
           maxLen.map(maxLength := _),
           finishOnKey             := finishOn.mkString,
-          recordingStatusCallback := recordingStatusCB.encode
+          recordingStatusCallback := recordingStatusCB.encode,
+          transcribeCB match {
+            case None        => modifier()
+            case Some(value) => modifier(transcribe := "true", transcribeCallback := value.encode)
+          }
         )
     }
 

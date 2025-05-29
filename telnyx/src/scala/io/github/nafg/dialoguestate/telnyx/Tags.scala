@@ -44,7 +44,7 @@ private object Tags {
         if (actionOnEmptyResult) gatherVerb
         else
           frag(gatherVerb, fromNode(Node.Redirect(baseUrl), baseUrl))
-      case Node.Record(maxLen, finishOn, recordingStatusCB)                =>
+      case Node.Record(finishOn, maxLen, recordingStatusCB, _)             =>
         Record(
           maxLen.map(maxLength := _),
           finishOnKey             := finishOn.mkString,

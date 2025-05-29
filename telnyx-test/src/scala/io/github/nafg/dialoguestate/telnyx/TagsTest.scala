@@ -47,16 +47,30 @@ object TagsTest extends ZIOSpecDefault {
           """<Redirect>https://example.com/base</Redirect>"""
       )
     },
-    test("Record") {
+    test("Record without transcription") {
       val node = Node.Record(
         maxLength = Some(60),
         finishOnKey = Set(DTMF('#')),
-        recordingStatusCallback = url"https://example.com/recording-status"
+        recordingStatusCallback = url"https://example.com/recording-status",
+        transcribeCallback = None
       )
       assertTrue(
         render(node) ==
-          """<Record maxLength="60" finishOnKey="#" recordingStatusCallback="https://example.com/recording-status"""" +
-          """ action="https://example.com/base"></Record>"""
+          """<Record maxLength="60" finishOnKey="#" recordingStatusCallback="https://example.com/recording-status" """ +
+          """action="https://example.com/base"></Record>"""
+      )
+    },
+    test("Record with transcription") {
+      val node = Node.Record(
+        maxLength = Some(60),
+        finishOnKey = Set(DTMF('#')),
+        recordingStatusCallback = url"https://example.com/recording-status",
+        transcribeCallback = Some(url"https://example.com/transcribe-callback")
+      )
+      assertTrue(
+        render(node) ==
+          """<Record maxLength="60" finishOnKey="#" recordingStatusCallback="https://example.com/recording-status" """ +
+          """action="https://example.com/base"></Record>"""
       )
     }
   )

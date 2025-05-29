@@ -37,15 +37,30 @@ object TagsTest extends ZIOSpecDefault {
             """<Say voice="man">Press a digit</Say></Gather>""")
       )
     },
-    test("Record") {
+    test("Record without transcription") {
       val node = Node.Record(
         maxLength = Some(60),
         finishOnKey = Set(DTMF('#')),
-        recordingStatusCallback = url"https://example.com/recording-status"
+        recordingStatusCallback = url"https://example.com/recording-status",
+        transcribeCallback = None
       )
       assertTrue(
         render(node) ==
           """<Record maxLength="60" finishOnKey="#" recordingStatusCallback="https://example.com/recording-status">""" +
+          """</Record>"""
+      )
+    },
+    test("Record with transcription") {
+      val node = Node.Record(
+        maxLength = Some(60),
+        finishOnKey = Set(DTMF('#')),
+        recordingStatusCallback = url"https://example.com/recording-status",
+        transcribeCallback = Some(url"https://example.com/transcribe-callback")
+      )
+      assertTrue(
+        render(node) ==
+          """<Record maxLength="60" finishOnKey="#" recordingStatusCallback="https://example.com/recording-status"""" +
+          """ transcribe="true" transcribeCallback="https://example.com/transcribe-callback">""" +
           """</Record>"""
       )
     }

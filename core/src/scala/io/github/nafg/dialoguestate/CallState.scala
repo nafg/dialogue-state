@@ -1,8 +1,17 @@
 package io.github.nafg.dialoguestate
 
-sealed trait CallState
-object CallState {
-  case class Ready(callTree: CallTree)                  extends CallState
-  case class AwaitingDigits(gather: CallTree.Gather)    extends CallState
-  case class AwaitingRecording(record: CallTree.Record) extends CallState
+import zio.Promise
+
+sealed trait CallState {
+  def callTree: CallTree
+}
+object CallState       {
+  case class Ready(callTree: CallTree)                 extends CallState
+  case class AwaitingDigits(callTree: CallTree.Gather) extends CallState
+  case class AwaitingRecording(callTree: CallTree.Record, data: Promise[Nothing, RecordingResult.Data.Untranscribed])
+      extends CallState
+  case class AwaitingTranscribedRecording(
+    callTree: CallTree.Record.Transcribed,
+    data: Promise[Nothing, RecordingResult.Data.Transcribed]
+  ) extends CallState
 }
