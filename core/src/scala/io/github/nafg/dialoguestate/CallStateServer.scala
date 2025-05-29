@@ -108,8 +108,8 @@ abstract class CallStateServer(
                              .map(_.get(callId))
                              .someOrElseZIO(mainCallTree.map(CallState.Ready(_): CallState))
               params    <- request.allParams.asRightError
-              _         <- ZIO.log(request.toString)
-              _         <- ZIO.log(params.toString)
+              _         <- ZIO.logTrace(s"Request: $request")
+              _         <- ZIO.logTrace(params.map.toString)
               result    <- interpretState(callState, params)
               _         <- callsStates.states.update { map =>
                              result.nextCallState match {
@@ -118,7 +118,7 @@ abstract class CallStateServer(
                              }
                            }
             } yield result.response(callInfo))
-              .tap(_.body.asString.asRightError.flatMap(ZIO.log(_)))
+              .tap(_.body.asString.asRightError.flatMap(b => ZIO.logTrace(s"Response body: $b")))
               .catchAll {
                 case Left(str)    => ZIO.succeed(errorResult(str).response(callInfo))
                 case Right(error) =>
