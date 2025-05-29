@@ -13,8 +13,10 @@ import io.github.nafg.dialoguestate.{
 
 import scalatags.Text
 import zio.http.*
+import zio.http.codec.*
+import zio.http.endpoint.{AuthType, Endpoint}
 import zio.schema.Schema
-import zio.{IO, Promise, Ref, UIO, ZIO}
+import zio.{Promise, Ref, UIO, ZIO}
 
 abstract class TwilioBaseCallStateServer(
   rootPath: Path,
@@ -23,9 +25,16 @@ abstract class TwilioBaseCallStateServer(
   requestVerificationMiddlewareService: RequestVerificationMiddlewareService
 ) extends CallStateServer(rootPath, mainCallTree, requestVerificationMiddlewareService) {
 
-  private val untranscribedRecordingStatusCallbackPath = rootPath / "recordingStatusCallbackUntranscribed"
-  private val transcribedRecordingStatusCallbackPath   = rootPath / "recordingStatusCallbackTranscribed"
-  private val transcriptionCallbackPath                = rootPath / "transcriptionStatusCallback"
+  protected val untranscribedRecordingStatusCallbackType =
+    new TwilioBaseCallStateServer.CallbackType.UntranscribedRecordingStatusCallbackType(
+      rootPath / "recordingStatusCallbackUntranscribed"
+    )
+  protected val transcribedRecordingStatusCallbackType   =
+    new TwilioBaseCallStateServer.CallbackType.TranscribedRecordingStatusCallbackType(
+      rootPath / "recordingStatusCallbackTranscribed"
+    )
+  protected val transcriptionCallbackType                =
+    new TwilioBaseCallStateServer.CallbackType.TranscriptionCallbackType(rootPath / "transcriptionStatusCallback")
 
   override type CallsStates = CallsStatesBase
 
@@ -71,8 +80,8 @@ abstract class TwilioBaseCallStateServer(
     Node.Record(
       finishOnKey = record.finishOnKey,
       maxLength = record.maxLength.map(_.toSeconds.toInt),
-      recordingStatusCallback = URL(transcribedRecordingStatusCallbackPath),
-      transcribeCallback = Some(URL(transcriptionCallbackPath))
+      recordingStatusCallback = URL(transcribedRecordingStatusCallbackType.path),
+      transcribeCallback = Some(URL(transcriptionCallbackType.path))
     )
 
   override protected def interpretTree(callTree: CallTree): UIO[Result] =
@@ -92,7 +101,7 @@ abstract class TwilioBaseCallStateServer(
           Node.Record(
             finishOnKey = record.finishOnKey,
             maxLength = record.maxLength.map(_.toSeconds.toInt),
-            recordingStatusCallback = URL(untranscribedRecordingStatusCallbackPath),
+            recordingStatusCallback = URL(untranscribedRecordingStatusCallbackType.path),
             transcribeCallback = None
           )
         for {
@@ -133,55 +142,26 @@ abstract class TwilioBaseCallStateServer(
     recordingResultFromPromise(queryParams, promise)
 
   override protected def allEndpoints(callsStates: CallsStates) = {
-    def collectState[B](noun: String, callSid: String)(pf: PartialFunction[CallState, B]): ZIO[Any, Response, B] =
-      (for {
-        states    <- callsStates.states.get
-        maybeState = states.get(callSid)
-        _         <- ZIO.logDebug(s"Call $callSid state: $maybeState")
-        state     <- ZIO.getOrFailWith(Response.notFound(s"Call $callSid not found"))(maybeState)
-        maybeB    <- ZIO.whenCase(state)(pf.andThen(ZIO.succeed(_)))
-      } yield maybeB)
-        .someOrFail(Response.error(Status.Conflict, s"Call $callSid was not awaiting a $noun"))
+    def route(callbackType: TwilioBaseCallStateServer.CallbackType, callsStates: CallsStates) =
+      callbackType.endpoint.implement { status =>
+        val sid = callbackType.callSid(status)
+        for {
+          states    <- callsStates.states.get
+          maybeState = states.get(sid)
+          _         <- ZIO.logDebug(s"Call $sid state: $maybeState")
+          callState <- ZIO.getOrFailWith(s"Call $sid not found")(maybeState)
+          state     <- ZIO
+                         .whenCase(callState)(callbackType.extractState.andThen(ZIO.succeed(_)))
+                         .someOrFail(s"Call $sid was not awaiting a ${callbackType.noun}")
+          updated   <- callbackType.handle(status, state)
+        } yield s"updated=$updated"
+      }
 
     super.allEndpoints(callsStates) ++
       Routes(
-        RoutePattern.POST / untranscribedRecordingStatusCallbackPath.encode ->
-          handler { (request: Request) =>
-            for {
-              status  <- TwilioBaseCallStateServer.RecordingStatus.fromRequest(request)
-              promise <- collectState("recording", status.callSid) { case CallState.AwaitingRecording(_, promise) =>
-                           promise
-                         }
-              updated <- status.recordingUrl match {
-                           case Some(url) => promise.succeed(RecordingResult.Data.Untranscribed(url))
-                           case None      => promise.die(new Exception("Recording failed"))
-                         }
-            } yield if (updated) Response.ok else Response.status(Status.NoContent)
-          },
-        RoutePattern.POST / transcribedRecordingStatusCallbackPath.encode   ->
-          handler { (request: Request) =>
-            for {
-              status  <- TwilioBaseCallStateServer.RecordingStatus.fromRequest(request)
-              promise <- collectState("transcribed recording", status.callSid) {
-                           case CallState.AwaitingTranscribedRecording(_, promise) => promise
-                         }
-              updated <- status.recordingUrl match {
-                           case Some(_) => ZIO.succeed(false)
-                           case None    => promise.die(new Exception("Recording failed"))
-                         }
-            } yield if (updated) Response.ok else Response.status(Status.NoContent)
-          },
-        RoutePattern.POST / transcriptionCallbackPath.encode                ->
-          handler { (request: Request) =>
-            for {
-              status  <- TwilioBaseCallStateServer.TranscriptionStatus.fromRequest(request)
-              promise <- collectState("transcribed recording", status.callSid) {
-                           case CallState.AwaitingTranscribedRecording(_, promise) => promise
-                         }
-              updated <-
-                promise.succeed(RecordingResult.Data.Transcribed(status.recordingUrl, status.transcriptionText))
-            } yield if (updated) Response.ok else Response.status(Status.NoContent)
-          }
+        route(untranscribedRecordingStatusCallbackType, callsStates),
+        route(transcribedRecordingStatusCallbackType, callsStates),
+        route(transcriptionCallbackType, callsStates)
       )
   }
 }
@@ -196,30 +176,133 @@ object TwilioBaseCallStateServer {
 
   case class RecordingStatus(callSid: String, recordingUrl: Option[URL])
   object RecordingStatus {
-    def fromRequest(request: Request): IO[Response, RecordingStatus] =
-      (for {
-        params       <- request.allParams
-        _            <- ZIO.logDebug(s"Recording status params: $params")
-        callSid      <- params.queryZIO[String]("CallSid")
-        succeeded    <- params.queryZIO("RecordingStatus")(statusSchema)
-        recordingUrl <- params.queryZIO("RecordingUrl")(urlSchema).when(succeeded)
-      } yield RecordingStatus(callSid, recordingUrl))
-        .tap(status => ZIO.logDebug(s"Recording status: $status"))
-        .mapError(t => Response.badRequest(t.getMessage))
+    implicit def recordingStatusSchema(implicit queryParamsSchema: Schema[QueryParams]): Schema[RecordingStatus] =
+      queryParamsSchema.transformOrFail[RecordingStatus](
+        params =>
+          (for {
+            callSid      <- params.query[String]("CallSid")
+            succeeded    <- params.query("RecordingStatus")(statusSchema)
+            recordingUrl <- if (succeeded) params.query("RecordingUrl")(urlSchema).map(Some(_)) else Right(None)
+          } yield RecordingStatus(callSid, recordingUrl)).left.map(_.message),
+        {
+          case RecordingStatus(callSid, None)               =>
+            Right(QueryParams("CallSid" -> callSid, "RecordingStatus" -> "failed"))
+          case RecordingStatus(callSid, Some(recordingUrl)) =>
+            Right(
+              QueryParams("CallSid" -> callSid, "RecordingStatus" -> "completed", "RecordingUrl" -> recordingUrl.encode)
+            )
+        }
+      )
   }
 
   case class TranscriptionStatus(callSid: String, recordingUrl: URL, transcriptionText: Option[String])
   object TranscriptionStatus {
-    def fromRequest(request: Request): IO[Response, TranscriptionStatus] =
-      (for {
-        params            <- request.allParams
-        _                 <- ZIO.logDebug(s"Transcription status params: $params")
-        callSid           <- params.queryZIO[String]("CallSid")
-        url               <- params.queryZIO("RecordingUrl")(urlSchema)
-        succeeded         <- params.queryZIO("TranscriptionStatus")(statusSchema)
-        transcriptionText <- params.queryZIO[String]("TranscriptionText").when(succeeded)
-      } yield TranscriptionStatus(callSid, url, transcriptionText))
-        .tap(status => ZIO.logDebug(s"Transcription status: $status"))
-        .mapError(t => Response.badRequest(t.getMessage))
+    implicit def transcriptionStatusSchema(implicit
+      queryParamsSchema: Schema[QueryParams]
+    ): Schema[TranscriptionStatus] =
+      queryParamsSchema.transformOrFail[TranscriptionStatus](
+        params =>
+          (for {
+            callSid           <- params.query[String]("CallSid")
+            url               <- params.query("RecordingUrl")(urlSchema)
+            succeeded         <- params.query("TranscriptionStatus")(statusSchema)
+            transcriptionText <- if (succeeded) params.query[String]("TranscriptionText").map(Some(_)) else Right(None)
+          } yield TranscriptionStatus(callSid, url, transcriptionText)).left.map(_.message),
+        {
+          case TranscriptionStatus(callSid, recordingUrl, None)                    =>
+            Right(
+              QueryParams(
+                "CallSid"             -> callSid,
+                "RecordingUrl"        -> recordingUrl.encode,
+                "TranscriptionStatus" -> "failed"
+              )
+            )
+          case TranscriptionStatus(callSid, recordingUrl, Some(transcriptionText)) =>
+            Right(
+              QueryParams(
+                "CallSid"             -> callSid,
+                "RecordingUrl"        -> recordingUrl.encode,
+                "TranscriptionStatus" -> "completed",
+                "TranscriptionText"   -> transcriptionText
+              )
+            )
+        }
+      )
+  }
+
+  abstract class CallbackType(val noun: String, val path: Path) {
+    type Status
+    type State
+
+    def callSid(status: Status): String
+
+    def extractState: PartialFunction[CallState, State]
+
+    def handle(status: Status, state: State): ZIO[Any, String, Boolean]
+
+    final protected def baseEndpoint: Endpoint[Unit, Unit, String, String, AuthType.None] =
+      Endpoint(RoutePattern.POST / path.encode)
+        .out[String]
+        .outError[String](Status.NotFound)
+
+    def endpoint: Endpoint[Unit, Status, String, String, AuthType.None]
+  }
+  object CallbackType                                           {
+    implicit val queryParamsFromStringSchema: Schema[QueryParams] =
+      Schema[String]
+        .transformOrFail[Form](
+          s => Form.fromURLEncoded(s, Charsets.Http).left.map(_.message),
+          form => Right(form.urlEncoded)
+        )
+        .transform[QueryParams](_.toQueryParams, _.toForm)
+
+    implicit def httpContentCodec[A: Schema]: HttpContentCodec[A] =
+      HttpContentCodec.from(
+        MediaType.application.`x-www-form-urlencoded` -> BinaryCodecWithSchema
+          .fromBinaryCodec(TextBinaryCodec.fromSchema[A])
+      )
+
+    trait RecordingStatus extends CallbackType {
+      override type Status = TwilioBaseCallStateServer.RecordingStatus
+      override def callSid(status: Status) = status.callSid
+      override def endpoint                = baseEndpoint.in[TwilioBaseCallStateServer.RecordingStatus]
+    }
+
+    abstract class Transcribed(path: Path) extends CallbackType("recording", path) {
+      override type State = Promise[Nothing, RecordingResult.Data.Transcribed]
+      override def extractState = { case CallState.AwaitingTranscribedRecording(_, promise) => promise }
+    }
+
+    class UntranscribedRecordingStatusCallbackType(path: Path)
+        extends CallbackType("recording", path)
+        with RecordingStatus {
+      override type State = Promise[Nothing, RecordingResult.Data.Untranscribed]
+
+      override def extractState = { case CallState.AwaitingRecording(_, promise) => promise }
+
+      override def handle(status: Status, promise: State) =
+        status.recordingUrl match {
+          case Some(url) => promise.succeed(RecordingResult.Data.Untranscribed(url))
+          case None      => promise.die(new Exception("Recording failed"))
+        }
+    }
+
+    class TranscribedRecordingStatusCallbackType(path: Path) extends Transcribed(path) with RecordingStatus {
+      override def handle(status: Status, promise: State) =
+        status.recordingUrl match {
+          case Some(_) => ZIO.succeed(false)
+          case None    => promise.die(new Exception("Recording failed"))
+        }
+    }
+
+    class TranscriptionCallbackType(path: Path) extends Transcribed(path) {
+      override type Status = TwilioBaseCallStateServer.TranscriptionStatus
+
+      override def callSid(status: Status) = status.callSid
+      override def endpoint                = baseEndpoint.in[TwilioBaseCallStateServer.TranscriptionStatus]
+
+      override def handle(status: Status, promise: State): UIO[Boolean] =
+        promise.succeed(RecordingResult.Data.Transcribed(status.recordingUrl, status.transcriptionText))
+    }
   }
 }
