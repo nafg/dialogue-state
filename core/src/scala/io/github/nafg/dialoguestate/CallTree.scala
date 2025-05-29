@@ -95,7 +95,7 @@ object CallTree {
     *   TwiML instruction.
     */
   abstract class Gather(
-    val actionOnEmptyResult: Boolean = false,
+    val actionOnEmptyResult: Boolean = true,
     val finishOnKey: Option[DTMF] = Some('#'),
     val numDigits: Option[Int] = None,
     val timeout: Int = 5
