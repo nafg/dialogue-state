@@ -47,8 +47,8 @@ templates:
       strict: true
   template-common-test:
     dependencies:
-    - dev.zio::zio-test-sbt:2.1.17
-    - dev.zio::zio-test:2.1.17
+    - dev.zio::zio-test-sbt:2.1.19
+    - dev.zio::zio-test:2.1.19
     extends: template-cross-all
     isTestProject: true
     testFrameworks: zio.test.sbt.ZTestFramework
