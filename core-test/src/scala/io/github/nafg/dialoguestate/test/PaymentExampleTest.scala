@@ -39,7 +39,9 @@ object PaymentExampleTest extends ZIOSpecDefault {
                 CallTree.Say("If you need assistance, please contact customer support.")
             )
           case PaymentResult.Failure.CallerHungUp                          =>
-            ZIO.succeed(CallTree.Say("Call ended during payment processing."))
+            ZIO.succeed(
+              CallTree.Say("Call ended during payment processing.")
+            )
         }
     }
 
