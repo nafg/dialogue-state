@@ -23,6 +23,7 @@ object CallTreeTester {
     case class Play()            extends Node
     case class Say(text: String) extends Node
     case class Record()          extends Node
+    case class Pay()             extends Node
   }
 
   /** Represents the current state of a call during testing
@@ -45,6 +46,10 @@ object CallTreeTester {
     /** The call is waiting for a recording to complete
       */
     case class AwaitingTranscribedRecording(record: CallTree.Record.Transcribed) extends TestCallState
+
+    /** The call is waiting for payment to complete
+      */
+    case class AwaitingPayment(pay: CallTree.Pay) extends TestCallState
 
     /** The call has ended
       */
@@ -97,6 +102,10 @@ object CallTreeTester {
         case record: CallTree.Record.Transcribed =>
           val allNodes = accNodes ++ List(Node.Record())
           ZIO.succeed((allNodes, Some(TestCallState.AwaitingTranscribedRecording(record))))
+
+        case pay: CallTree.Pay =>
+          val allNodes = accNodes ++ List(Node.Pay())
+          ZIO.succeed((allNodes, Some(TestCallState.AwaitingPayment(pay))))
 
         case sequence: CallTree.Sequence.WithContinuation =>
           interpretSequence(sequence.elems, accNodes)
@@ -192,6 +201,13 @@ object CallTreeTester {
           evalCallback(record.handle(recordingURL, transcriptionText, terminator), record)
       }
 
+    /** Expects that the call is waiting for payment and provides the specified payment result
+      */
+    def sendPayment(paymentResult: PaymentResult): Task[TestCallState] =
+      sendToAwaitingState("AwaitingPayment state") { case TestCallState.AwaitingPayment(pay) =>
+        evalCallback(pay.handle(paymentResult), pay)
+      }
+
     /** Expects that the call has ended
       */
     def expectEnded: Task[TestCallState] =
@@ -247,6 +263,9 @@ object CallTreeTester {
 
           case TestCallState.AwaitingTranscribedRecording(_) =>
             ZIO.fail(new AssertionError(s"Expected to hear '$text' but call is awaiting transcribed recording"))
+
+          case TestCallState.AwaitingPayment(_) =>
+            ZIO.fail(new AssertionError(s"Expected to hear '$text' but call is awaiting payment"))
         }
       }
   }

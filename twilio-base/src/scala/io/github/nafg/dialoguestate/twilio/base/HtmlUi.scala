@@ -16,10 +16,26 @@ object HtmlUi {
       yield <.input(^.`type` := "hidden", ^.name := k, ^.value := vv)()
 
   def fromNode(node: Node, info: CallInfo): Frag = node match {
-    case Node.Pause(length)    => <.span("-" * length)
-    case Node.Play(url)        => <.audio(^.src := url.encode, ^.controls := true)
-    case Node.Redirect(url)    => <.a(^.href := url.addQueryParams(callParams(info)).encode)("Redirect")
-    case Node.Say(text, voice) => <.p(text)
+    case Node.Pause(length)                                 => <.span("-" * length)
+    case Node.Play(url)                                     => <.audio(^.src := url.encode, ^.controls := true)
+    case Node.Pay(paymentConnector, description, tokenType) =>
+      frag(
+        <.form(
+          <.input(^.tpe := "hidden", ^.name := "Result", ^.value       := "success"),
+          <.input(^.tpe := "hidden", ^.name := "ProfileId", ^.value    := Random.alphanumeric.take(10).mkString),
+          <.input(^.tpe := "hidden", ^.name := "PaymentToken", ^.value := "tok_visa"),
+          callParamsFields(info),
+          <.button(^.`type` := "submit")("Submit payment token")
+        ),
+        <.form(
+          <.input(^.tpe := "hidden", ^.name := "Result", ^.value         := "payment-connector-error"),
+          <.input(^.tpe := "hidden", ^.name := "ConnectorError", ^.value := "some error"),
+          callParamsFields(info),
+          <.button(^.`type` := "submit")("Submit payment error")
+        )
+      )
+    case Node.Redirect(url) => <.a(^.href := url.addQueryParams(callParams(info)).encode)("Redirect")
+    case Node.Say(text, voice)                              => <.p(text)
     case gather @ Node.Gather(actionOnEmptyResult, finishOnKey, numDigits, timeout) =>
       def childTags(children: List[Node.Gather.Child]): List[Tag] = children match {
         case Nil                                                                                   => Nil

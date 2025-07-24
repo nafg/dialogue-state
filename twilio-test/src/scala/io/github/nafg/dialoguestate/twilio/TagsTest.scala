@@ -63,6 +63,18 @@ object TagsTest extends ZIOSpecDefault {
           """ transcribe="true" transcribeCallback="https://example.com/transcribe-callback">""" +
           """</Record>"""
       )
+    },
+    test("Pay without connector") {
+      val node = Node.Pay(paymentConnector = None, description = "Payment for order #12345", tokenType = "one-time")
+      assertTrue(render(node) == """<Pay description="Payment for order #12345" tokenType="one-time"></Pay>""")
+    },
+    test("Pay with connector") {
+      val node =
+        Node.Pay(paymentConnector = Some("stripe"), description = "Payment for subscription", tokenType = "reusable")
+      assertTrue(
+        render(node) ==
+          """<Pay description="Payment for subscription" paymentConnector="stripe" tokenType="reusable"></Pay>"""
+      )
     }
   )
 }

@@ -8,6 +8,7 @@ sealed trait CallState {
 object CallState       {
   case class Ready(callTree: CallTree)                 extends CallState
   case class AwaitingDigits(callTree: CallTree.Gather) extends CallState
+  case class AwaitingPayment(callTree: CallTree.Pay)   extends CallState
   case class AwaitingRecording(callTree: CallTree.Record, data: Promise[Nothing, RecordingResult.Data.Untranscribed])
       extends CallState
   case class AwaitingTranscribedRecording(

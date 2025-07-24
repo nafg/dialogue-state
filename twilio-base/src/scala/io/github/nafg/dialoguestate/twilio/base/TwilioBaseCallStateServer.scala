@@ -47,7 +47,8 @@ abstract class TwilioBaseCallStateServer(
 
   protected def polyglotResponse(nodes: List[Node], callInfo: CallInfo): Text.TypedTag[String]
 
-  override protected def digits(queryParams: QueryParams): Option[String] = queryParams.getAll("Digits").headOption
+  override protected def gatherResult(queryParams: QueryParams): Option[String] =
+    queryParams.getAll("Digits").headOption
 
   protected case class Result(nodes: List[Node], nextCallState: Option[CallState] = None) extends ResultBase {
     override def response(callInfo: CallInfo): Response =
@@ -84,6 +85,8 @@ abstract class TwilioBaseCallStateServer(
       transcribeCallback = Some(URL(transcriptionCallbackType.path))
     )
 
+  protected def toNode(pay: CallTree.Pay): Node.Pay
+
   override protected def interpretTree(callTree: CallTree): UIO[Result] =
     callTree match {
       case noCont: CallTree.NoContinuation              => ZIO.succeed(Result(toNodes(noCont)))
@@ -111,6 +114,8 @@ abstract class TwilioBaseCallStateServer(
         for {
           promise <- Promise.make[Nothing, RecordingResult.Data.Transcribed]
         } yield Result(List(toNode(record)), Some(CallState.AwaitingTranscribedRecording(record, promise)))
+      case pay: CallTree.Pay                            =>
+        ZIO.succeed(Result(List(toNode(pay)), Some(CallState.AwaitingPayment(pay))))
       case sequence: CallTree.Sequence.WithContinuation =>
         ZIO.foldLeft(sequence.elems)(Result(Nil)) { case (result, tree) =>
           interpretTree(tree).map(result.concat)
