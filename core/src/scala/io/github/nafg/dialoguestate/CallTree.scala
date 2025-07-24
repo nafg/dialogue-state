@@ -68,6 +68,15 @@ object CallTree {
 
   case class Play(url: URL) extends CallTree.NoContinuation
 
+  sealed abstract class Pay(val tokenType: String, val description: String) extends CallTree.HasContinuation {
+    def handle(paymentResult: PaymentResult): Callback
+  }
+  object Pay {
+    abstract class OneTime(description: String)       extends Pay("one-time", description)
+    abstract class Reusable(description: String)      extends Pay("reusable", description)
+    abstract class PaymentMethod(description: String) extends Pay("payment-method", description)
+  }
+
   abstract class Record(val maxLength: Option[Duration] = None, val finishOnKey: Set[DTMF] = Set('#'))
       extends CallTree.HasContinuation {
     def handle(recordingUrl: URL, terminator: Option[RecordingResult.Terminator]): Callback

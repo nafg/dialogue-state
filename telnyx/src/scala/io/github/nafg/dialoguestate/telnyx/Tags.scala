@@ -51,6 +51,8 @@ private object Tags {
           recordingStatusCallback := recordingStatusCB.encode,
           action                  := baseUrl.encode
         )
+      case Node.Pay(_, _, _)                                               =>
+        throw new UnsupportedOperationException("Payment processing not supported by Telnyx")
     }
 
   def polyglotResponse(html: Frag, tags: Seq[Frag]) =

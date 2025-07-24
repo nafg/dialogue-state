@@ -36,7 +36,9 @@ abstract class CallStateServer(
     */
   protected def interpretTree(callTree: CallTree): UIO[Result]
 
-  protected def digits(queryParams: QueryParams): Option[String]
+  protected def gatherResult(queryParams: QueryParams): Option[String]
+
+  protected def paymentResult(queryParams: QueryParams): ZIO[Any, CallTree.Failure, PaymentResult]
 
   protected def recordingResult(
     queryParams: QueryParams,
@@ -68,9 +70,12 @@ abstract class CallStateServer(
       case CallState.AwaitingDigits(tree)                        =>
         postHandle(
           ZIO
-            .getOrFailWith(Left("Nothing entered"))(digits(queryParams))
+            .getOrFailWith(Left("Nothing entered"))(gatherResult(queryParams))
             .flatMap(tree.handle)
         )
+      case CallState.AwaitingPayment(tree)                       =>
+        paymentResult(queryParams)
+          .flatMap(result => postHandle(tree.handle(result)))
       case CallState.AwaitingRecording(tree, promise)            =>
         timeoutOrRetry(recordingResult(queryParams, promise))
           .flatMap(result => postHandle(tree.handle(result)))

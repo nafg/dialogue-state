@@ -27,6 +27,11 @@ private object Tags {
   val transcribe              = attr("transcribe")
   val transcribeCallback      = attr("transcribeCallback")
 
+  val Pay              = TypedTag[String]("Pay", modifiers = Nil, void = false)
+  val description      = attr("description")
+  val tokenType        = attr("tokenType")
+  val paymentConnector = attr("paymentConnector")
+
   val Redirect = TypedTag[String]("Redirect", modifiers = Nil, void = false)
 
   val Response = TypedTag[String]("Response", modifiers = Nil, void = false)
@@ -35,6 +40,8 @@ private object Tags {
     node match {
       case Node.Pause(len)                                                => Pause(length := len)()
       case Node.Play(url)                                                 => Play(url.encode)
+      case Node.Pay(connector, desc, tokType)                             =>
+        Pay(description := desc, connector.map(paymentConnector := _), tokenType := tokType)
       case Node.Redirect(url)                                             => Redirect(url.encode)
       case Node.Say(text, v)                                              => Say(voice := v.value, text)
       case gather @ Node.Gather(actionOnEmpty, finishOn, maxLen, to)      =>

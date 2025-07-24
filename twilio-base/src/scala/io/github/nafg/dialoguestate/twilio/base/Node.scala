@@ -6,9 +6,10 @@ import zio.http.URL
 
 sealed trait Node
 object Node {
-  case class Pause(length: Int = 1)          extends Node with Gather.Child
-  case class Play(url: URL)                  extends Node with Gather.Child
-  case class Redirect(url: URL)              extends Node
+  case class Pause(length: Int = 1) extends Node with Gather.Child
+  case class Play(url: URL)         extends Node with Gather.Child
+  case class Pay(paymentConnector: Option[String], description: String, tokenType: String) extends Node
+  case class Redirect(url: URL)                                                            extends Node
   case class Say(text: String, voice: Voice) extends Node with Gather.Child
 
   case class Gather(actionOnEmptyResult: Boolean, finishOnKey: Option[DTMF], numDigits: Option[Int], timeout: Int = 5)(
