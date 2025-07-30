@@ -92,38 +92,38 @@ object CallTreeTester {
 
     /** Unified CallTree interpretation that always accumulates nodes
       */
-    private def interpretTree(callTree: CallTree, accNodes: List[Node]): UIO[(List[Node], Option[TestCallState])] =
+    private def interpretTree(callTree: CallTree, accNodes: List[Node]): UIO[(Option[TestCallState], List[Node])] =
       callTree match {
         case noCont: CallTree.NoContinuation =>
-          ZIO.succeed((accNodes ++ toNodes(noCont), None))
+          ZIO.succeed((None, accNodes ++ toNodes(noCont)))
 
         case suspend: CallTree.Suspend =>
           evalCallback(suspend.handle(""), suspend).flatMap {
             case TestCallState.Ready(resultTree) => interpretTree(resultTree, accNodes)
-            case otherState                      => ZIO.succeed((accNodes, Some(otherState)))
+            case otherState                      => ZIO.succeed((Some(otherState), accNodes))
           }
 
         case gather: CallTree.Gather =>
           val messageNodes = toNodes(gather.message)
           val allNodes     = accNodes ++ messageNodes
-          ZIO.succeed((allNodes, Some(TestCallState.AwaitingDigits(gather, messageNodes))))
+          ZIO.succeed((Some(TestCallState.AwaitingDigits(gather, messageNodes)), allNodes))
 
         case record: CallTree.Record =>
           val allNodes = accNodes ++ List(Node.Record())
-          ZIO.succeed((allNodes, Some(TestCallState.AwaitingRecording(record))))
+          ZIO.succeed((Some(TestCallState.AwaitingRecording(record)), allNodes))
 
         case record: CallTree.Record.Transcribed =>
           val allNodes = accNodes ++ List(Node.Record())
-          ZIO.succeed((allNodes, Some(TestCallState.AwaitingTranscribedRecording(record))))
+          ZIO.succeed((Some(TestCallState.AwaitingTranscribedRecording(record)), allNodes))
 
         case pay: CallTree.Pay =>
           val allNodes = accNodes ++ List(Node.Pay())
-          ZIO.succeed((allNodes, Some(TestCallState.AwaitingPayment(pay))))
+          ZIO.succeed((Some(TestCallState.AwaitingPayment(pay)), allNodes))
 
         case sequence: CallTree.Sequence.WithContinuation =>
-          sequence.elems.foldLeftM((accNodes, Option.empty[TestCallState])) { case ((currentNodes, stateOpt), elem) =>
+          sequence.elems.foldLeftM((Option.empty[TestCallState], accNodes)) { case ((stateOpt, currentNodes), elem) =>
             stateOpt match {
-              case Some(state) => ZIO.succeed((currentNodes, Some(state))) // Already found a stateful element
+              case Some(state) => ZIO.succeed((Some(state), currentNodes))
               case None        => interpretTree(elem, currentNodes)
             }
           }
@@ -149,19 +149,20 @@ object CallTreeTester {
         )
         .tap(newState => stateRef.update(_.copy(callState = newState)))
 
+    private def applyState: ((Option[TestCallState], List[Node])) => UIO[TestCallState] = { case (maybeState, nodes) =>
+      val nextState = maybeState.getOrElse(TestCallState.Ended)
+      stateRef
+        .set(State(nextState, nodes))
+        .as(nextState)
+    }
+
     /** Advances the call to the next state
       */
     private def advance: UIO[TestCallState] =
       stateRef.get
         .flatMap { state =>
           state.callState match {
-            case TestCallState.Ready(callTree) =>
-              interpretTree(callTree, state.accumulatedNodes).flatMap {
-                case (nodes, Some(nextState)) =>
-                  stateRef.set(State(nextState, nodes)) *> ZIO.succeed(nextState)
-                case (nodes, None)            =>
-                  stateRef.set(State(TestCallState.Ended, nodes)) *> ZIO.succeed(TestCallState.Ended)
-              }
+            case TestCallState.Ready(callTree) => interpretTree(callTree, state.accumulatedNodes).flatMap(applyState)
             case other                         => ZIO.succeed(other)
           }
         }
@@ -241,13 +242,8 @@ object CallTreeTester {
         state.callState match {
           case TestCallState.Ready(callTree)                        =>
             interpretTree(callTree, state.accumulatedNodes)
-              .tap { case (nodes, _) => processText(nodes) }
-              .flatMap { case (nodes, finalState) =>
-                val nextState = finalState.getOrElse(TestCallState.Ended)
-                stateRef
-                  .set(State(nextState, nodes))
-                  .as(nextState)
-              }
+              .tap { case (_, nodes) => processText(nodes) }
+              .flatMap(applyState)
           case callState if state.accumulatedNodes.nonEmpty         =>
             processText(state.accumulatedNodes).as(callState)
           case callState @ TestCallState.AwaitingDigits(_, message) =>
