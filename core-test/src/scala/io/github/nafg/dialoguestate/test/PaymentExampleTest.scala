@@ -39,9 +39,7 @@ object PaymentExampleTest extends ZIOSpecDefault {
                 CallTree.Say("If you need assistance, please contact customer support.")
             )
           case PaymentResult.Failure.CallerHungUp                          =>
-            ZIO.succeed(
-              CallTree.Say("Call ended during payment processing.")
-            )
+            ZIO.succeed(CallTree.Say("Call ended during payment processing."))
         }
     }
 
@@ -54,9 +52,7 @@ object PaymentExampleTest extends ZIOSpecDefault {
         tester <- CallTreeTester(paymentTree)
         _      <- tester.expect("Please provide your payment information")
         _      <- tester.sendPayment(PaymentResult.Success("profile123", "token456"))
-        _      <- tester.expect("Payment successful!")
-        _      <- tester.expect("Your transaction ID is token456")
-        _      <- tester.expect("Thank you for your payment")
+        _      <- tester.expect("Payment successful!", "Your transaction ID is token456", "Thank you for your payment")
       } yield assertCompletes
     },
     test("handles validation error") {
@@ -64,8 +60,7 @@ object PaymentExampleTest extends ZIOSpecDefault {
         tester <- CallTreeTester(paymentTree)
         _      <- tester.expect("Please provide your payment information")
         _      <- tester.sendPayment(PaymentResult.Failure.ValidationError("Invalid card number"))
-        _      <- tester.expect("Payment validation failed: Invalid card number")
-        _      <- tester.expect("Please check your payment information")
+        _ <- tester.expect("Payment validation failed: Invalid card number", "Please check your payment information")
       } yield assertCompletes
     },
     test("handles payment connector error") {
@@ -73,8 +68,7 @@ object PaymentExampleTest extends ZIOSpecDefault {
         tester <- CallTreeTester(paymentTree)
         _      <- tester.expect("Please provide your payment information")
         _      <- tester.sendPayment(PaymentResult.Failure.PaymentConnectorError("Gateway timeout"))
-        _      <- tester.expect("Payment processing error: Gateway timeout")
-        _      <- tester.expect("Please try again later")
+        _      <- tester.expect("Payment processing error: Gateway timeout", "Please try again later")
       } yield assertCompletes
     },
     test("handles too many failed attempts") {
@@ -82,8 +76,8 @@ object PaymentExampleTest extends ZIOSpecDefault {
         tester <- CallTreeTester(paymentTree)
         _      <- tester.expect("Please provide your payment information")
         _      <- tester.sendPayment(PaymentResult.Failure.TooManyFailedAttempts)
-        _      <- tester.expect("You have exceeded the maximum number of payment attempts")
-        _      <- tester.expect("Please contact customer support")
+        _      <-
+          tester.expect("You have exceeded the maximum number of payment attempts", "Please contact customer support")
       } yield assertCompletes
     },
     test("handles caller interruption with star") {
@@ -91,8 +85,7 @@ object PaymentExampleTest extends ZIOSpecDefault {
         tester <- CallTreeTester(paymentTree)
         _      <- tester.expect("Please provide your payment information")
         _      <- tester.sendPayment(PaymentResult.Failure.CallerInterruptedWithStar)
-        _      <- tester.expect("Payment cancelled by user")
-        _      <- tester.expect("If you need assistance")
+        _      <- tester.expect("Payment cancelled by user", "If you need assistance")
       } yield assertCompletes
     },
     test("handles caller hanging up") {

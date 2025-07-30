@@ -83,9 +83,7 @@ object VoicemailExampleTest extends ZIOSpecDefault {
         _      <- tester.sendDigits("1")
         _      <- tester.expect("Please leave your message after the tone")
         _      <- tester.sendRecording(url"https://example.com/recordings/standard/123")
-        _      <- tester.expect("Thank you for your message")
-        _      <- tester.expect("Your message will be delivered")
-        _      <- tester.expect("Press 1 to listen")
+        _      <- tester.expect("Thank you for your message", "Your message will be delivered", "Press 1 to listen")
         _      <- tester.sendDigits("3") // Finish
         _      <- tester.expect("Thank you for using our voicemail system")
       } yield assertCompletes
@@ -97,9 +95,11 @@ object VoicemailExampleTest extends ZIOSpecDefault {
         _      <- tester.sendDigits("2")
         _      <- tester.expect("Please leave your urgent message")
         _      <- tester.sendRecording(url"https://example.com/recordings/urgent/456")
-        _      <- tester.expect("Thank you for your urgent message")
-        _      <- tester.expect("Your message will be marked as urgent")
-        _      <- tester.expect("Press 1 to listen")
+        _      <- tester.expect(
+                    "Thank you for your urgent message",
+                    "Your message will be marked as urgent",
+                    "Press 1 to listen"
+                  )
         _      <- tester.sendDigits("3") // Finish
         _      <- tester.expect("Thank you for using our voicemail system")
       } yield assertCompletes
@@ -111,9 +111,7 @@ object VoicemailExampleTest extends ZIOSpecDefault {
         _      <- tester.sendDigits("3")
         _      <- tester.expect("Please leave your feedback")
         _      <- tester.sendRecording(url"https://example.com/recordings/feedback/789")
-        _      <- tester.expect("Thank you for your feedback")
-        _      <- tester.expect("Your feedback will be reviewed")
-        _      <- tester.expect("Press 1 to listen")
+        _      <- tester.expect("Thank you for your feedback", "Your feedback will be reviewed", "Press 1 to listen")
         _      <- tester.sendDigits("3") // Finish
         _      <- tester.expect("Thank you for using our voicemail system")
       } yield assertCompletes
@@ -125,16 +123,14 @@ object VoicemailExampleTest extends ZIOSpecDefault {
         _      <- tester.sendDigits("1")
         _      <- tester.expect("Please leave your message")
         _      <- tester.sendRecording(url"https://example.com/recordings/123")
-        _      <- tester.expect("Thank you for your message")
-        _      <- tester.expect("Press 1 to listen")
-        _      <- tester.sendDigits("2")                           // Re-record
-        _      <- tester.expect("Let's try again")
-        _      <- tester.expect("Welcome to the voicemail system") // Back to the main menu
-        _      <- tester.sendDigits("1")                           // Choose standard recording again
+        _      <- tester.expect("Thank you for your message", "Press 1 to listen")
+        _      <- tester.sendDigits("2")                                              // Re-record
+        _      <- tester.expect("Let's try again", "Welcome to the voicemail system") // Back to the main menu
+        _      <- tester.sendDigits("1")                                              // Choose standard recording again
         _      <- tester.expect("Please leave your message")
         _      <- tester.sendRecording(url"https://example.com/recordings/456")
         _      <- tester.expect("Thank you for your message")
-        _      <- tester.sendDigits("3")                           // Finish
+        _      <- tester.sendDigits("3")                                              // Finish
         _      <- tester.expect("Thank you for using our voicemail system")
       } yield assertCompletes
     }

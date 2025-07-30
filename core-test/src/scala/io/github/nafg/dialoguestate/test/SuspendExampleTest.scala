@@ -30,8 +30,7 @@ object SuspendExampleTest extends ZIOSpecDefault {
       }
       for {
         tester <- CallTreeTester(CounterSuspendTree(0))
-        _      <- tester.expect("Counter: 1")
-        _      <- tester.expect("Counter: 2")
+        _      <- tester.expect("Counter: 1", "Counter: 2")
         _      <- tester.expectEnded
       } yield assertCompletes
     },
@@ -48,9 +47,11 @@ object SuspendExampleTest extends ZIOSpecDefault {
       }
       for {
         tester <- CallTreeTester(eventuallySucceedingSuspendTree)
-        _      <- tester.expect("Please wait, checking status...")
-        _      <- tester.expect("Please wait, checking status...")
-        _      <- tester.expect("Status check complete, continuing...")
+        _      <- tester.expect(
+                    "Please wait, checking status...",
+                    "Please wait, checking status...",
+                    "Status check complete, continuing..."
+                  )
       } yield assertCompletes
     },
     test("suspend can return complex CallTree sequences") {
@@ -64,9 +65,7 @@ object SuspendExampleTest extends ZIOSpecDefault {
       }
       for {
         tester <- CallTreeTester(suspendWithSequenceTree)
-        _      <- tester.expect("First message")
-        _      <- tester.expect("Second message")
-        _      <- tester.expect("Third message")
+        _      <- tester.expect("First message", "Second message", "Third message")
       } yield assertCompletes
     },
     test("suspend has access to CallInfo context") {
@@ -93,16 +92,14 @@ object SuspendExampleTest extends ZIOSpecDefault {
       }
       for {
         tester <- CallTreeTester(nestedSuspendTree)
-        _      <- tester.expect("First suspend completed")
-        _      <- tester.expect("Second suspend completed")
+        _      <- tester.expect("First suspend completed", "Second suspend completed")
       } yield assertCompletes
     },
     test("suspend within a sequence with other call tree elements") {
       val mixedTree = CallTree.Say("Before suspend") &: simpleSuspendTree
       for {
         tester <- CallTreeTester(mixedTree)
-        _      <- tester.expect("Before suspend")
-        _      <- tester.expect("Suspension completed successfully")
+        _      <- tester.expect("Before suspend", "Suspension completed successfully")
       } yield assertCompletes
     },
     test("suspend can transition to other CallTree types") {

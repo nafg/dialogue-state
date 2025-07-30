@@ -47,8 +47,7 @@ object SimpleMenuExampleTest extends ZIOSpecDefault {
         tester <- CallTreeTester(menuTree)
         _      <- tester.expect("Welcome to the test menu")
         _      <- tester.sendDigits("1")
-        _      <- tester.expect("You selected sales")
-        _      <- tester.expect("Please hold while we connect you")
+        _      <- tester.expect("You selected sales", "Please hold while we connect you")
       } yield assertCompletes
     },
     test("can navigate to support option") {
@@ -56,8 +55,7 @@ object SimpleMenuExampleTest extends ZIOSpecDefault {
         tester <- CallTreeTester(menuTree)
         _      <- tester.expect("Welcome to the test menu")
         _      <- tester.sendDigits("2")
-        _      <- tester.expect("You selected support")
-        _      <- tester.expect("Please hold while we connect you")
+        _      <- tester.expect("You selected support", "Please hold while we connect you")
       } yield assertCompletes
     },
     test("can handle invalid input") {
@@ -65,8 +63,7 @@ object SimpleMenuExampleTest extends ZIOSpecDefault {
         tester <- CallTreeTester(menuTree)
         _      <- tester.expect("Welcome to the test menu")
         _      <- tester.sendDigits("9")
-        _      <- tester.expect("Invalid selection")
-        _      <- tester.expect("Welcome to the test menu")
+        _      <- tester.expect("Invalid selection", "Welcome to the test menu")
         _      <- tester.sendDigits("1")
         _      <- tester.expect("You selected sales")
       } yield assertCompletes
@@ -78,8 +75,7 @@ object SimpleMenuExampleTest extends ZIOSpecDefault {
         _      <- tester.sendDigits("3")
         _      <- tester.expect("Please record your message")
         _      <- tester.sendRecording(url"https://example.com/recordings/123")
-        _      <- tester.expect("Thank you for your message")
-        _      <- tester.expect("A representative will listen to your message")
+        _      <- tester.expect("Thank you for your message", "A representative will listen to your message")
       } yield assertCompletes
     }
   )

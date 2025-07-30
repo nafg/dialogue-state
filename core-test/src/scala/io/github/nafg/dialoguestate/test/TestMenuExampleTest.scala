@@ -137,8 +137,7 @@ object TestMenuExampleTest extends ZIOSpecDefault {
         _      <- tester.sendDigits("1")
         _      <- tester.expect("On a scale of 1 to 5")
         _      <- tester.sendDigits("5")
-        _      <- tester.expect("Thank you for rating us 5 out of 5")
-        _      <- tester.expect("Your feedback is important to us")
+        _      <- tester.expect("Thank you for rating us 5 out of 5", "Your feedback is important to us")
       } yield assertCompletes
     }
   )
