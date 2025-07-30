@@ -121,20 +121,12 @@ object CallTreeTester {
           ZIO.succeed((allNodes, Some(TestCallState.AwaitingPayment(pay))))
 
         case sequence: CallTree.Sequence.WithContinuation =>
-          interpretSequence(sequence.elems, accNodes)
-      }
-
-    /** Process sequence elements, stopping at first stateful element
-      */
-    private def interpretSequence(
-      elems: List[CallTree],
-      accNodes: List[Node]
-    ): UIO[(List[Node], Option[TestCallState])] =
-      elems.foldLeftM((accNodes, Option.empty[TestCallState])) { case ((currentNodes, stateOpt), elem) =>
-        stateOpt match {
-          case Some(state) => ZIO.succeed((currentNodes, Some(state))) // Already found a stateful element
-          case None        => interpretTree(elem, currentNodes)
-        }
+          sequence.elems.foldLeftM((accNodes, Option.empty[TestCallState])) { case ((currentNodes, stateOpt), elem) =>
+            stateOpt match {
+              case Some(state) => ZIO.succeed((currentNodes, Some(state))) // Already found a stateful element
+              case None        => interpretTree(elem, currentNodes)
+            }
+          }
       }
 
     /** Gets the current state of the call
