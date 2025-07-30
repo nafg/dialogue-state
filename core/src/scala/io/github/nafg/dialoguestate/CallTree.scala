@@ -20,10 +20,16 @@ object CallTree {
     */
   type Failure = Either[String, Throwable]
 
+  type CallbackTo[+A] = ZIO[CallInfo, Failure, A]
+
   /** A ZIO that represents a callback function that can access `CallInfo` from the environment, potentially fails with
     * a [[Failure]], and produces a [[CallTree]] as output.
     */
-  type Callback = ZIO[CallInfo, Failure, CallTree]
+  type Callback = CallbackTo[CallTree]
+
+  def invalid(message: String): CallbackTo[Nothing]    = ZIO.fail(Left(message))
+  def error(message: String): CallbackTo[Nothing]      = ZIO.fail(Right(new RuntimeException(message)))
+  def error(throwable: Throwable): CallbackTo[Nothing] = ZIO.fail(Right(throwable))
 
   sealed trait NoContinuation extends CallTree {
     override def &:(that: NoContinuation): NoContinuation = (that, this) match {
