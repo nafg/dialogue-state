@@ -1,5 +1,7 @@
 package io.github.nafg.dialoguestate.test
 
+import scala.io.AnsiColor
+
 import io.github.nafg.dialoguestate.*
 
 import zio.*
@@ -14,6 +16,7 @@ import zio.prelude.ForEachOps
   *   - Provide recording results when the program is waiting for a recording
   */
 object CallTreeTester {
+  private def highlight(str: String): String = AnsiColor.BOLD + AnsiColor.YELLOW + str + AnsiColor.RESET
 
   /** A simplified version of the Node class for testing purposes
     */
@@ -65,10 +68,14 @@ object CallTreeTester {
   val defaultCallInfo: CallInfo = CallInfo(callId = "test-call-id", from = "+15551234567", to = "+15559876543")
 
   case class UnexpectedStateException(expectationDescription: String, actualState: TestCallState)
-      extends AssertionError(s"Expected $expectationDescription but got $actualState")
+      extends AssertionError(
+        s"Expected ${highlight(expectationDescription)} but got ${highlight(actualState.toString)}"
+      )
 
   case class MissingExpectedTextException(expectedText: String, actualText: Seq[String])
-      extends AssertionError(s"Expected to hear '$expectedText' but got: ${actualText.map("\n ✦ " + _).mkString}")
+      extends AssertionError(
+        s"Expected to hear '${highlight(expectedText)}' but got: ${actualText.map("\n • " + _).mkString}"
+      )
 
   /** Represents a tester for a CallTree program
     */
@@ -186,14 +193,16 @@ object CallTreeTester {
     def sendDigits(digits: String): Task[TestCallState] =
       sendToAwaitingState("AwaitingDigits state") { case TestCallState.AwaitingDigits(gather, _) =>
         evalCallback(gather.handle(digits), gather)
-      }
+      } <*
+        ZIO.logInfo(s" 🔢 Sent digits: ${highlight(digits)}")
 
     /** Expects that the call is waiting for a recording and provides the specified recording result
       */
     def sendRecording(recordingURL: URL, terminator: Option[RecordingResult.Terminator] = None): Task[TestCallState] =
       sendToAwaitingState("AwaitingRecording state") { case TestCallState.AwaitingRecording(record) =>
         evalCallback(record.handle(recordingURL, terminator), record)
-      }
+      } <*
+        ZIO.logInfo(s" 🎤 Sent recording: ${highlight(recordingURL.encode)}")
 
     /** Expects that the call is waiting for a transcribed recording and provides the specified recording result
       */
@@ -205,14 +214,16 @@ object CallTreeTester {
       sendToAwaitingState("AwaitingTranscribedRecording state") {
         case TestCallState.AwaitingTranscribedRecording(record) =>
           evalCallback(record.handle(recordingURL, transcriptionText, terminator), record)
-      }
+      } <*
+        ZIO.logInfo(s" 🎤 Sent transcribed recording: ${highlight(recordingURL.encode)}")
 
     /** Expects that the call is waiting for payment and provides the specified payment result
       */
     def sendPayment(paymentResult: PaymentResult): Task[TestCallState] =
       sendToAwaitingState("AwaitingPayment state") { case TestCallState.AwaitingPayment(pay) =>
         evalCallback(pay.handle(paymentResult), pay)
-      }
+      } <*
+        ZIO.logInfo(s" 💳 Sent payment info: ${highlight(paymentResult.toString)}")
 
     /** Expects that the call has ended
       */
@@ -221,7 +232,8 @@ object CallTreeTester {
         case ended @ TestCallState.Ended => ZIO.succeed(ended)
         case TestCallState.Ready(_)      => advance *> expectEnded
         case other                       => ZIO.fail(UnexpectedStateException("Ended state", other))
-      }
+      } <*
+        ZIO.logInfo(" 🏁 Call ended")
 
     /** Expects that the call will say the given text, automatically advancing if needed
       */
@@ -251,7 +263,8 @@ object CallTreeTester {
           case other                                                =>
             ZIO.fail(UnexpectedStateException(s"to hear '$text'", other))
         }
-      }
+      } <*
+        ZIO.logInfo(s" ✅ Heard '${highlight(text)}'")
   }
 
   /** Creates a new tester for the given CallTree
