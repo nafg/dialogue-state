@@ -92,42 +92,53 @@ object CallTreeTester {
 
     /** Unified CallTree interpretation that always accumulates nodes
       */
-    private def interpretTree(callTree: CallTree, accNodes: List[Node]): UIO[(Option[TestCallState], List[Node])] =
-      callTree match {
-        case noCont: CallTree.NoContinuation =>
-          ZIO.succeed((None, accNodes ++ toNodes(noCont)))
+    private def interpretTree(
+      callTree: CallTree,
+      accNodes: List[Node],
+      history: List[CallTree] = Nil
+    ): Task[(Option[TestCallState], List[Node])] =
+      if (history.length > 1000) {
+        ZIO.fail(
+          new RuntimeException(
+            "Possible infinite loop detected. CallTree stack: " + history.take(100).map("\n • " + _.toString)
+          )
+        )
+      } else
+        callTree match {
+          case noCont: CallTree.NoContinuation =>
+            ZIO.succeed((None, accNodes ++ toNodes(noCont)))
 
-        case suspend: CallTree.Suspend =>
-          evalCallback(suspend.handle(""), suspend).flatMap {
-            case TestCallState.Ready(resultTree) => interpretTree(resultTree, accNodes)
-            case otherState                      => ZIO.succeed((Some(otherState), accNodes))
-          }
-
-        case gather: CallTree.Gather =>
-          val messageNodes = toNodes(gather.message)
-          val allNodes     = accNodes ++ messageNodes
-          ZIO.succeed((Some(TestCallState.AwaitingDigits(gather, messageNodes)), allNodes))
-
-        case record: CallTree.Record =>
-          val allNodes = accNodes ++ List(Node.Record())
-          ZIO.succeed((Some(TestCallState.AwaitingRecording(record)), allNodes))
-
-        case record: CallTree.Record.Transcribed =>
-          val allNodes = accNodes ++ List(Node.Record())
-          ZIO.succeed((Some(TestCallState.AwaitingTranscribedRecording(record)), allNodes))
-
-        case pay: CallTree.Pay =>
-          val allNodes = accNodes ++ List(Node.Pay())
-          ZIO.succeed((Some(TestCallState.AwaitingPayment(pay)), allNodes))
-
-        case sequence: CallTree.Sequence.WithContinuation =>
-          sequence.elems.foldLeftM((Option.empty[TestCallState], accNodes)) { case ((stateOpt, currentNodes), elem) =>
-            stateOpt match {
-              case Some(state) => ZIO.succeed((Some(state), currentNodes))
-              case None        => interpretTree(elem, currentNodes)
+          case suspend: CallTree.Suspend =>
+            evalCallback(suspend.handle(""), suspend).flatMap {
+              case TestCallState.Ready(resultTree) => interpretTree(resultTree, accNodes, suspend :: history)
+              case otherState                      => ZIO.succeed((Some(otherState), accNodes))
             }
-          }
-      }
+
+          case gather: CallTree.Gather =>
+            val messageNodes = toNodes(gather.message)
+            val allNodes     = accNodes ++ messageNodes
+            ZIO.succeed((Some(TestCallState.AwaitingDigits(gather, messageNodes)), allNodes))
+
+          case record: CallTree.Record =>
+            val allNodes = accNodes ++ List(Node.Record())
+            ZIO.succeed((Some(TestCallState.AwaitingRecording(record)), allNodes))
+
+          case record: CallTree.Record.Transcribed =>
+            val allNodes = accNodes ++ List(Node.Record())
+            ZIO.succeed((Some(TestCallState.AwaitingTranscribedRecording(record)), allNodes))
+
+          case pay: CallTree.Pay =>
+            val allNodes = accNodes ++ List(Node.Pay())
+            ZIO.succeed((Some(TestCallState.AwaitingPayment(pay)), allNodes))
+
+          case sequence: CallTree.Sequence.WithContinuation =>
+            sequence.elems.foldLeftM((Option.empty[TestCallState], accNodes)) { case ((stateOpt, currentNodes), elem) =>
+              stateOpt match {
+                case Some(state) => ZIO.succeed((Some(state), currentNodes))
+                case None        => interpretTree(elem, currentNodes, sequence :: history)
+              }
+            }
+        }
 
     /** Gets the current state of the call
       */
@@ -158,7 +169,7 @@ object CallTreeTester {
 
     /** Advances the call to the next state
       */
-    private def advance: UIO[TestCallState] =
+    private def advance: Task[TestCallState] =
       stateRef.get
         .flatMap { state =>
           state.callState match {
