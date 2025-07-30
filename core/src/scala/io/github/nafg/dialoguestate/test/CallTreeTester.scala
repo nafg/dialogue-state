@@ -72,7 +72,7 @@ object CallTreeTester {
         s"Expected ${highlight(expectationDescription)} but got ${highlight(actualState.toString)}"
       )
 
-  case class MissingExpectedTextException(expectedText: String, actualText: Seq[String])
+  case class MissingExpectedTextException(expectedText: String, actualText: Seq[Node])
       extends AssertionError(
         s"Expected to hear '${highlight(expectedText)}' but got: ${actualText.map("\n • " + _).mkString}"
       )
@@ -232,17 +232,29 @@ object CallTreeTester {
       */
     def expect(text: String): Task[TestCallState] =
       stateRef.get.flatMap { state =>
-        def processText(nodes: List[Node]) = {
-          val sayNodes = nodes.collect { case Node.Say(t) => t }
-          ZIO
-            .fail(MissingExpectedTextException(text, sayNodes))
-            .unlessDiscard(sayNodes.exists(_.contains(text)))
+        def processText(nodes: List[Node]): Task[List[Node]] = {
+          object suffix {
+            def unapply(string: String) = {
+              val suffix = string.drop(string.indexOf(text) + text.length)
+              Option.unless(suffix.isEmpty)(suffix)
+            }
+          }
+          val droppedNonMatchingPrefix =
+            nodes.dropWhile {
+              case Node.Say(t) => !t.contains(text)
+              case _           => true
+            }
+          droppedNonMatchingPrefix match {
+            case Nil                         => ZIO.fail(MissingExpectedTextException(text, nodes))
+            case Node.Say(suffix(s)) :: rest => ZIO.succeed(Node.Say(s) +: rest)
+            case _ :: rest                   => ZIO.succeed(rest)
+          }
         }
 
         state.callState match {
           case TestCallState.Ready(callTree)                        =>
             interpretTree(callTree, state.accumulatedNodes)
-              .tap { case (_, nodes) => processText(nodes) }
+              .flatMap { case (callState, nodes) => processText(nodes).map(callState -> _) }
               .flatMap(applyState)
           case callState if state.accumulatedNodes.nonEmpty         =>
             processText(state.accumulatedNodes).as(callState)
