@@ -64,6 +64,12 @@ object CallTreeTester {
     */
   val defaultCallInfo: CallInfo = CallInfo(callId = "test-call-id", from = "+15551234567", to = "+15559876543")
 
+  case class UnexpectedStateException(expectationDescription: String, actualState: TestCallState)
+      extends AssertionError(s"Expected $expectationDescription but got $actualState")
+
+  case class MissingExpectedTextException(expectedText: String, actualText: Seq[String])
+      extends AssertionError(s"Expected to hear '$expectedText' but got: ${actualText.map("\n ✦ " + _).mkString}")
+
   /** Represents a tester for a CallTree program
     */
   class Tester private[CallTreeTester] (stateRef: Ref[State], callInfo: CallInfo) {
@@ -171,7 +177,7 @@ object CallTreeTester {
           case TestCallState.Ready(_) =>
             advance *> sendToAwaitingState(expectedStateDescription)(extractHandler)
           case other                  =>
-            ZIO.fail(new AssertionError(s"Expected $expectedStateDescription but got $other"))
+            ZIO.fail(UnexpectedStateException(expectedStateDescription, other))
         }
       }
 
@@ -212,60 +218,38 @@ object CallTreeTester {
       */
     def expectEnded: Task[TestCallState] =
       currentState.flatMap {
-        case ended @ TestCallState.Ended =>
-          ZIO.succeed(ended)
-        case TestCallState.Ready(_)      =>
-          advance *> expectEnded
-        case other                       =>
-          ZIO.fail(new AssertionError(s"Expected Ended state but got $other"))
+        case ended @ TestCallState.Ended => ZIO.succeed(ended)
+        case TestCallState.Ready(_)      => advance *> expectEnded
+        case other                       => ZIO.fail(UnexpectedStateException("Ended state", other))
       }
-
-    /** Helper to check if the text exists in say nodes and update the state appropriately
-      */
-    private def processExpectedText(
-      nodes: List[Node],
-      text: String,
-      nextState: Option[TestCallState]
-    ): Task[TestCallState] = {
-      val sayNodes = nodes.collect { case Node.Say(t) => t }
-      if (sayNodes.exists(_.contains(text))) {
-        val finalState = nextState.getOrElse(TestCallState.Ended)
-        stateRef.set(State(finalState, nodes)) *> ZIO.succeed(finalState)
-      } else
-        ZIO.fail(new AssertionError(s"Expected to hear '$text' but got ${sayNodes.mkString(", ")}"))
-    }
 
     /** Expects that the call will say the given text, automatically advancing if needed
       */
     def expect(text: String): Task[TestCallState] =
       stateRef.get.flatMap { state =>
+        def processText(nodes: List[Node]) = {
+          val sayNodes = nodes.collect { case Node.Say(t) => t }
+          ZIO
+            .fail(MissingExpectedTextException(text, sayNodes))
+            .unlessDiscard(sayNodes.exists(_.contains(text)))
+        }
+
         state.callState match {
-          case TestCallState.Ready(callTree)        =>
+          case TestCallState.Ready(callTree)                        =>
             interpretTree(callTree, state.accumulatedNodes)
+              .tap { case (nodes, _) => processText(nodes) }
               .flatMap { case (nodes, finalState) =>
-                processExpectedText(nodes, text, finalState)
+                val nextState = finalState.getOrElse(TestCallState.Ended)
+                stateRef
+                  .set(State(nextState, nodes))
+                  .as(nextState)
               }
-          case _ if state.accumulatedNodes.nonEmpty =>
-            processExpectedText(state.accumulatedNodes, text, Some(state.callState))
-
+          case callState if state.accumulatedNodes.nonEmpty         =>
+            processText(state.accumulatedNodes).as(callState)
           case callState @ TestCallState.AwaitingDigits(_, message) =>
-            val sayNodes = message.collect { case Node.Say(t) => t }
-            if (sayNodes.exists(_.contains(text)))
-              ZIO.succeed(callState)
-            else
-              ZIO.fail(new AssertionError(s"Expected to hear '$text' but got ${sayNodes.mkString(", ")}"))
-
-          case TestCallState.Ended =>
-            ZIO.fail(new AssertionError(s"Expected to hear '$text' but call has ended"))
-
-          case TestCallState.AwaitingRecording(_) =>
-            ZIO.fail(new AssertionError(s"Expected to hear '$text' but call is awaiting recording"))
-
-          case TestCallState.AwaitingTranscribedRecording(_) =>
-            ZIO.fail(new AssertionError(s"Expected to hear '$text' but call is awaiting transcribed recording"))
-
-          case TestCallState.AwaitingPayment(_) =>
-            ZIO.fail(new AssertionError(s"Expected to hear '$text' but call is awaiting payment"))
+            processText(message).as(callState)
+          case other                                                =>
+            ZIO.fail(UnexpectedStateException(s"to hear '$text'", other))
         }
       }
   }
