@@ -79,10 +79,12 @@ object TranscriptionExampleTest extends ZIOSpecDefault {
                     url"https://example.com/recordings/123",
                     Some("This is a test of the transcription feature")
                   )
-        _      <- tester.expect("Thank you for your message")
-        _      <- tester.expect("Your message was transcribed as")
-        _      <- tester.expect("This is a test of the transcription feature")
-        _      <- tester.expect("Press 1 to record another message")
+        _      <- tester.expect(
+                    "Thank you for your message",
+                    "Your message was transcribed as",
+                    "This is a test of the transcription feature",
+                    "Press 1 to record another message"
+                  )
         _      <- tester.sendDigits("2") // Finish
         _      <- tester.expect("Thank you for using our transcription demo")
       } yield assertCompletes
@@ -94,9 +96,11 @@ object TranscriptionExampleTest extends ZIOSpecDefault {
         _      <- tester.sendDigits("2")
         _      <- tester.expect("Please speak your message after the tone")
         _      <- tester.sendRecording(url"https://example.com/recordings/456")
-        _      <- tester.expect("Thank you for your message")
-        _      <- tester.expect("Transcription was not enabled for this recording")
-        _      <- tester.expect("Press 1 to record another message")
+        _      <- tester.expect(
+                    "Thank you for your message",
+                    "Transcription was not enabled for this recording",
+                    "Press 1 to record another message"
+                  )
         _      <- tester.sendDigits("2") // Finish
         _      <- tester.expect("Thank you for using our transcription demo")
       } yield assertCompletes

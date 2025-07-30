@@ -230,15 +230,15 @@ object CallTreeTester {
 
     /** Expects that the call will say the given text, automatically advancing if needed
       */
-    def expect(text: String): Task[TestCallState] =
-      stateRef.get.flatMap { state =>
-        def processText(nodes: List[Node]): Task[List[Node]] = {
-          object suffix {
-            def unapply(string: String) = {
-              val suffix = string.drop(string.indexOf(text) + text.length)
-              Option.unless(suffix.isEmpty)(suffix)
-            }
+    def expect(texts: String*): Task[TestCallState] =
+      ZIO.foreachDiscard(texts) { text =>
+        object suffix {
+          def unapply(string: String) = {
+            val suffix = string.drop(string.indexOf(text) + text.length)
+            Option.unless(suffix.isEmpty)(suffix)
           }
+        }
+        def processText(nodes: List[Node]): Task[List[Node]] = {
           val droppedNonMatchingPrefix =
             nodes.dropWhile {
               case Node.Say(t) => !t.contains(text)
@@ -251,20 +251,24 @@ object CallTreeTester {
           }
         }
 
-        state.callState match {
-          case TestCallState.Ready(callTree)                        =>
-            interpretTree(callTree, state.accumulatedNodes)
-              .flatMap { case (callState, nodes) => processText(nodes).map(callState -> _) }
-              .flatMap(applyState)
-          case callState if state.accumulatedNodes.nonEmpty         =>
-            processText(state.accumulatedNodes).as(callState)
-          case callState @ TestCallState.AwaitingDigits(_, message) =>
-            processText(message).as(callState)
-          case other                                                =>
-            ZIO.fail(UnexpectedStateException(s"to hear '$text'", other))
-        }
-      } <*
-        ZIO.logInfo(s" ✅ Heard '${highlight(text)}'")
+        for {
+          state <- stateRef.get
+          res   <- state.callState match {
+                     case TestCallState.Ready(callTree)            =>
+                       interpretTree(callTree, state.accumulatedNodes)
+                         .flatMap { case (callState, nodes) => processText(nodes).map(callState -> _) }
+                         .flatMap(applyState)
+                     case _ if state.accumulatedNodes.nonEmpty     =>
+                       processText(state.accumulatedNodes)
+                     case TestCallState.AwaitingDigits(_, message) =>
+                       processText(message)
+                     case other                                    =>
+                       ZIO.fail(UnexpectedStateException(s"to hear '$text'", other))
+                   }
+          _     <- ZIO.logInfo(s" ✅ Heard '${highlight(text)}'")
+        } yield res
+      } *>
+        currentState
   }
 
   /** Creates a new tester for the given CallTree
