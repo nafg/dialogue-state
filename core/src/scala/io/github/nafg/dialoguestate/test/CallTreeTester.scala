@@ -146,18 +146,14 @@ object CallTreeTester {
 
     /** Executes a callback and updates the state
       */
-    private def evalCallback(callback: CallTree.Callback, tree: CallTree): UIO[TestCallState] =
+    private def evalCallback(callback: CallTree.Callback, tree: CallTree): Task[TestCallState] =
       callback
         .provide(ZLayer.succeed(callInfo))
-        .fold(
-          failure = {
-            case Left(error)  => TestCallState.Ready(CallTree.Say(error) &: CallTree.Pause() &: tree)
-            case Right(error) =>
-              error.printStackTrace()
-              TestCallState.Ended
-          },
-          success = callTree => TestCallState.Ready(callTree)
-        )
+        .unright
+        .map {
+          case Left(error)     => TestCallState.Ready(CallTree.Say(error) &: CallTree.Pause() &: tree)
+          case Right(callTree) => TestCallState.Ready(callTree)
+        }
         .tap(newState => stateRef.update(_.copy(callState = newState)))
 
     private def applyState: ((Option[TestCallState], List[Node])) => UIO[TestCallState] = { case (maybeState, nodes) =>
