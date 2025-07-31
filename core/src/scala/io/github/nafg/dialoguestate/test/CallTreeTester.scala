@@ -276,6 +276,8 @@ object CallTreeTester {
         } yield res
       } *>
         currentState
+
+    def expectAndSend(texts: String*)(digits: String) = expect(texts*) *> sendDigits(digits)
   }
 
   /** Creates a new tester for the given CallTree
