@@ -8,6 +8,9 @@ import zio.prelude.data.Optional
 
 sealed trait CallTree {
   def &:(that: CallTree.NoContinuation): CallTree
+
+  def when(condition: Boolean): CallTree   = if (condition) this else CallTree.empty
+  def unless(condition: Boolean): CallTree = when(!condition)
 }
 
 object CallTree {
@@ -32,6 +35,23 @@ object CallTree {
   def error(message: String): CallbackTo[Nothing]      = ZIO.fail(Right(new RuntimeException(message)))
   def error(throwable: Throwable): CallbackTo[Nothing] = ZIO.fail(Right(throwable))
 
+  val empty = Sequence.NoContinuationOnly(Nil)
+
+  def apply(trees: CallTree.NoContinuation*): CallTree.Sequence.NoContinuationOnly =
+    CallTree.Sequence.NoContinuationOnly(trees.toList)
+
+  def traverse[A](xs: Seq[A])(f: A => CallTree.NoContinuation): CallTree.Sequence.NoContinuationOnly =
+    CallTree.Sequence.NoContinuationOnly(xs.map(f).toList)
+
+  def traverse[A](x: Option[A])(f: A => CallTree.NoContinuation): CallTree.Sequence.NoContinuationOnly =
+    traverse(x.toList)(f)
+
+  def traverse[A](x: Option[A])(f: A => CallTree.HasContinuation): CallTree =
+    x match {
+      case Some(a) => f(a)
+      case None    => empty
+    }
+
   sealed trait NoContinuation extends CallTree {
     override def &:(that: NoContinuation): NoContinuation = (that, this) match {
       case (Sequence.NoContinuationOnly(elems), Sequence.NoContinuationOnly(elems2)) =>
@@ -43,6 +63,9 @@ object CallTree {
       case _                                                                         =>
         Sequence.NoContinuationOnly(List(that, this))
     }
+
+    override def when(condition: Boolean): NoContinuation   = if (condition) this else empty
+    override def unless(condition: Boolean): NoContinuation = when(!condition)
   }
 
   sealed trait HasContinuation        extends CallTree {
@@ -63,8 +86,6 @@ object CallTree {
     }
     case class NoContinuationOnly(override val elems: List[NoContinuation]) extends Sequence[false] with NoContinuation
   }
-
-  val empty = Sequence.NoContinuationOnly(Nil)
 
   case class Pause(length: Duration = Duration.ofSeconds(1)) extends NoContinuation
 
