@@ -1,6 +1,7 @@
 package io.github.nafg.dialoguestate.test
 
 import io.github.nafg.dialoguestate.*
+import io.github.nafg.dialoguestate.ToSay.interpolator
 
 import zio.*
 import zio.test.*
@@ -15,35 +16,35 @@ object PaymentExampleTest extends ZIOSpecDefault {
         paymentResult match {
           case PaymentResult.Success(profileId, paymentToken)              =>
             ZIO.succeed(
-              CallTree.Say(s"Payment successful! Your transaction ID is $paymentToken.") &:
-                CallTree.Say("Thank you for your payment. Have a great day!")
+              say"Payment successful! Your transaction ID is $paymentToken." &:
+                say"Thank you for your payment. Have a great day!"
             )
           case PaymentResult.Failure.ValidationError(paymentError)         =>
             ZIO.succeed(
-              CallTree.Say(s"Payment validation failed: $paymentError.") &:
-                CallTree.Say("Please check your payment information and try again.")
+              say"Payment validation failed: $paymentError." &:
+                say"Please check your payment information and try again."
             )
           case PaymentResult.Failure.PaymentConnectorError(connectorError) =>
             ZIO.succeed(
-              CallTree.Say(s"Payment processing error: $connectorError.") &:
-                CallTree.Say("Please try again later or contact customer support.")
+              say"Payment processing error: $connectorError." &:
+                say"Please try again later or contact customer support."
             )
           case PaymentResult.Failure.TooManyFailedAttempts                 =>
             ZIO.succeed(
-              CallTree.Say("You have exceeded the maximum number of payment attempts.") &:
-                CallTree.Say("Please contact customer support for assistance.")
+              say"You have exceeded the maximum number of payment attempts." &:
+                say"Please contact customer support for assistance."
             )
           case PaymentResult.Failure.CallerInterruptedWithStar             =>
             ZIO.succeed(
-              CallTree.Say("Payment cancelled by user.") &:
-                CallTree.Say("If you need assistance, please contact customer support.")
+              say"Payment cancelled by user." &:
+                say"If you need assistance, please contact customer support."
             )
           case PaymentResult.Failure.CallerHungUp                          =>
-            ZIO.succeed(CallTree.Say("Call ended during payment processing."))
+            ZIO.succeed(say"Call ended during payment processing.")
         }
     }
 
-    CallTree.Say("Please provide your payment information. The payment will be processed securely.") &: pay
+    say"Please provide your payment information. The payment will be processed securely." &: pay
   }
 
   override def spec: Spec[TestEnvironment, Any] = suite("Payment Example Test")(

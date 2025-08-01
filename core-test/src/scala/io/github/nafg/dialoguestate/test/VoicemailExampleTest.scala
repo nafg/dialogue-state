@@ -1,6 +1,7 @@
 package io.github.nafg.dialoguestate.test
 
 import io.github.nafg.dialoguestate.*
+import io.github.nafg.dialoguestate.ToSay.interpolator
 
 import zio.*
 import zio.http.*
@@ -20,7 +21,7 @@ object VoicemailExampleTest extends ZIOSpecDefault {
       case "1" => ZIO.succeed(standardRecording)
       case "2" => ZIO.succeed(urgentRecording)
       case "3" => ZIO.succeed(feedbackRecording)
-      case _   => ZIO.succeed(CallTree.Say("Invalid selection. Please try again.") &: this)
+      case _   => ZIO.succeed(say"Invalid selection. Please try again." &: this)
     }
   }
 
@@ -28,50 +29,50 @@ object VoicemailExampleTest extends ZIOSpecDefault {
     object record extends CallTree.Record {
       override def handle(recordingUrl: URL, terminator: Option[RecordingResult.Terminator]): CallTree.Callback =
         ZIO.succeed(
-          CallTree.Say(s"Thank you for your message. It was recorded at ${recordingUrl.encode}.") &:
-            CallTree.Say("Your message will be delivered to the recipient.") &:
+          say"Thank you for your message. It was recorded at ${recordingUrl.encode}." &:
+            say"Your message will be delivered to the recipient." &:
             confirmationMenu
         )
     }
 
-    CallTree.Say("Please leave your message after the tone. Press # when you are finished.") &: record
+    say"Please leave your message after the tone. Press # when you are finished." &: record
   }
 
   private val urgentRecording: CallTree = {
     object record extends CallTree.Record {
       override def handle(recordingUrl: URL, terminator: Option[RecordingResult.Terminator]): CallTree.Callback =
         ZIO.succeed(
-          CallTree.Say(s"Thank you for your urgent message. It was recorded at ${recordingUrl.encode}.") &:
-            CallTree.Say("Your message will be marked as urgent and delivered immediately.") &:
+          say"Thank you for your urgent message. It was recorded at ${recordingUrl.encode}." &:
+            say"Your message will be marked as urgent and delivered immediately." &:
             confirmationMenu
         )
     }
 
-    CallTree.Say("Please leave your urgent message after the tone. Press # when you are finished.") &: record
+    say"Please leave your urgent message after the tone. Press # when you are finished." &: record
   }
 
   private val feedbackRecording: CallTree = {
     object record extends CallTree.Record {
       override def handle(recordingUrl: URL, terminator: Option[RecordingResult.Terminator]): CallTree.Callback =
         ZIO.succeed(
-          CallTree.Say(s"Thank you for your feedback. It was recorded at ${recordingUrl.encode}.") &:
-            CallTree.Say("Your feedback will be reviewed by our team.") &:
+          say"Thank you for your feedback. It was recorded at ${recordingUrl.encode}." &:
+            say"Your feedback will be reviewed by our team." &:
             confirmationMenu
         )
     }
 
-    CallTree.Say("Please leave your feedback after the tone. Press # when you are finished.") &: record
+    say"Please leave your feedback after the tone. Press # when you are finished." &: record
   }
 
   private object confirmationMenu extends CallTree.Gather(numDigits = 1, timeout = 10) {
     override def message: CallTree.NoContinuation =
-      CallTree.Say("Press 1 to listen to your recording, 2 to re-record, or 3 to finish.")
+      say"Press 1 to listen to your recording, 2 to re-record, or 3 to finish."
 
     override def handle: String => CallTree.Callback = {
-      case "1" => ZIO.succeed(CallTree.Say("This feature is not implemented in this example.") &: this)
-      case "2" => ZIO.succeed(CallTree.Say("Let's try again.") &: VoicemailTree)
-      case "3" => ZIO.succeed(CallTree.Say("Thank you for using our voicemail system. Goodbye."))
-      case _   => ZIO.succeed(CallTree.Say("Invalid selection. Please try again.") &: this)
+      case "1" => ZIO.succeed(say"This feature is not implemented in this example." &: this)
+      case "2" => ZIO.succeed(say"Let's try again." &: VoicemailTree)
+      case "3" => ZIO.succeed(say"Thank you for using our voicemail system. Goodbye.")
+      case _   => ZIO.succeed(say"Invalid selection. Please try again." &: this)
     }
   }
 

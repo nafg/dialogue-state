@@ -1,6 +1,7 @@
 package io.github.nafg.dialoguestate.test
 
 import io.github.nafg.dialoguestate.*
+import io.github.nafg.dialoguestate.ToSay.interpolator
 
 import zio.*
 import zio.http.*
@@ -19,25 +20,23 @@ object ComplexIvrExampleTest extends ZIOSpecDefault {
 
   private class ComplexIvrExampleService(val authenticatedUserRef: Ref[Option[User]]) {
     case class PinEntryMenu(accountNumber: String) extends CallTree.Gather(numDigits = Some(4), timeout = 15) {
-      override def message: CallTree.NoContinuation = CallTree.Say("")
+      override def message: CallTree.NoContinuation = CallTree.empty
 
       override def handle: String => CallTree.Callback = {
         case pin if users(accountNumber).pin == pin =>
           authenticatedUserRef
             .set(Some(users(accountNumber)))
             .as(
-              CallTree.Say("Authentication successful. Welcome to SecureBank telephone banking.") &:
+              say"Authentication successful. Welcome to SecureBank telephone banking." &:
                 mainMenu
             )
-        case _ => ZIO.succeed(CallTree.Say("Incorrect PIN. Please try again.") &: this)
+        case _                                      => ZIO.succeed(say"Incorrect PIN. Please try again." &: this)
       }
     }
 
     object welcomeMenu extends CallTree.Gather(numDigits = Some(8), timeout = 15) {
       override def message: CallTree.NoContinuation =
-        CallTree.Say(
-          "Welcome to SecureBank telephone banking. Please enter your 8-digit account number followed by the pound key."
-        )
+        say"Welcome to SecureBank telephone banking. Please enter your 8-digit account number followed by the pound key."
 
       override def handle: String => CallTree.Callback = {
         case accountNumber if users.contains(accountNumber) =>
@@ -48,15 +47,15 @@ object ComplexIvrExampleTest extends ZIOSpecDefault {
                 "We're sorry, but your account has been locked for security reasons. " +
                   "Please visit your local branch or call customer service during business hours."
               ) &:
-                CallTree.Say("Thank you for calling SecureBank. Goodbye.")
+                say"Thank you for calling SecureBank. Goodbye."
             )
           } else {
             ZIO.succeed(
-              CallTree.Say(s"Thank you. Now please enter your 4-digit PIN followed by the pound key.") &:
+              say"Thank you. Now please enter your 4-digit PIN followed by the pound key." &:
                 PinEntryMenu(accountNumber)
             )
           }
-        case _ => ZIO.succeed(CallTree.Say("We couldn't find an account with that number. Please try again.") &: this)
+        case _ => ZIO.succeed(say"We couldn't find an account with that number. Please try again." &: this)
       }
     }
 
@@ -73,10 +72,8 @@ object ComplexIvrExampleTest extends ZIOSpecDefault {
         case "3" => ZIO.succeed(fundsTransferMenu)
         case "4" => ZIO.succeed(customerServiceMenu)
         case "0" =>
-          ZIO.succeed(
-            CallTree.Say("Thank you for using SecureBank telephone banking. Your session has ended. Goodbye.")
-          )
-        case _   => ZIO.succeed(CallTree.Say("Invalid selection. Please try again.") &: this)
+          ZIO.succeed(say"Thank you for using SecureBank telephone banking. Your session has ended. Goodbye.")
+        case _   => ZIO.succeed(say"Invalid selection. Please try again." &: this)
       }
     }
     case class BalanceMenu(user: User) extends CallTree.Gather(numDigits = Some(1), timeout = 10) {
@@ -95,10 +92,8 @@ object ComplexIvrExampleTest extends ZIOSpecDefault {
       override def handle: String => CallTree.Callback = {
         case "1" => ZIO.succeed(mainMenu)
         case "0" =>
-          ZIO.succeed(
-            CallTree.Say("Thank you for using SecureBank telephone banking. Your session has ended. Goodbye.")
-          )
-        case _   => ZIO.succeed(CallTree.Say("Invalid selection. Please try again.") &: this)
+          ZIO.succeed(say"Thank you for using SecureBank telephone banking. Your session has ended. Goodbye.")
+        case _   => ZIO.succeed(say"Invalid selection. Please try again." &: this)
       }
     }
 
@@ -115,10 +110,8 @@ object ComplexIvrExampleTest extends ZIOSpecDefault {
       override def handle: String => CallTree.Callback = {
         case "1" => ZIO.succeed(mainMenu)
         case "0" =>
-          ZIO.succeed(
-            CallTree.Say("Thank you for using SecureBank telephone banking. Your session has ended. Goodbye.")
-          )
-        case _   => ZIO.succeed(CallTree.Say("Invalid selection. Please try again.") &: this)
+          ZIO.succeed(say"Thank you for using SecureBank telephone banking. Your session has ended. Goodbye.")
+        case _   => ZIO.succeed(say"Invalid selection. Please try again." &: this)
       }
     }
 
@@ -132,23 +125,23 @@ object ComplexIvrExampleTest extends ZIOSpecDefault {
       override def handle: String => CallTree.Callback = {
         case "1" =>
           ZIO.succeed(
-            CallTree.Say("Internal transfers can be made through our mobile app or online banking.") &:
-              CallTree.Say("Press 1 to return to the main menu or 0 to end your session.") &:
+            say"Internal transfers can be made through our mobile app or online banking." &:
+              say"Press 1 to return to the main menu or 0 to end your session." &:
               returnToMainMenu
           )
         case "2" =>
           ZIO.succeed(
-            CallTree.Say("To transfer funds to another customer, please have their account number ready.") &:
+            say"To transfer funds to another customer, please have their account number ready." &:
               externalTransferMenu
           )
         case "0" => ZIO.succeed(mainMenu)
-        case _   => ZIO.succeed(CallTree.Say("Invalid selection. Please try again.") &: this)
+        case _   => ZIO.succeed(say"Invalid selection. Please try again." &: this)
       }
     }
 
     object externalTransferMenu extends CallTree.Gather(timeout = 15, finishOnKey = '#') {
       override def message: CallTree.NoContinuation =
-        CallTree.Say("Please enter the 8-digit account number of the recipient followed by the pound key.")
+        say"Please enter the 8-digit account number of the recipient followed by the pound key."
 
       override def handle: String => CallTree.Callback = {
         case accountNumber if users.contains(accountNumber) =>
@@ -156,26 +149,23 @@ object ComplexIvrExampleTest extends ZIOSpecDefault {
             case Some(user) =>
               if (accountNumber != user.accountNumber) {
                 ZIO.succeed(
-                  CallTree.Say(s"Please enter the amount to transfer in dollars followed by the pound key.") &:
+                  say"Please enter the amount to transfer in dollars followed by the pound key." &:
                     TransferAmountMenu(accountNumber)
                 )
               } else {
                 ZIO.succeed(
-                  CallTree
-                    .Say("You cannot transfer funds to your own account using this method. Please try again.") &: this
+                  say"You cannot transfer funds to your own account using this method. Please try again." &: this
                 )
               }
             case None       =>
-              ZIO.succeed(
-                CallTree.Say("You need to be authenticated to make a transfer. Please try again later.") &: mainMenu
-              )
+              ZIO.succeed(say"You need to be authenticated to make a transfer. Please try again later." &: mainMenu)
           }
-        case _ => ZIO.succeed(CallTree.Say("Invalid account number. Please try again.") &: this)
+        case _ => ZIO.succeed(say"Invalid account number. Please try again." &: this)
       }
     }
 
     case class TransferAmountMenu(recipientAccount: String) extends CallTree.Gather(timeout = 15) {
-      override def message: CallTree.NoContinuation = CallTree.Say("")
+      override def message: CallTree.NoContinuation = say""
 
       override def handle: String => CallTree.Callback = {
         case amount if amount.matches("""\d+(\.\d{1,2})?""") =>
@@ -184,48 +174,45 @@ object ComplexIvrExampleTest extends ZIOSpecDefault {
           authenticatedUserRef.get.flatMap {
             case Some(user) =>
               if (transferAmount <= 0) {
-                ZIO.succeed(CallTree.Say("Transfer amount must be greater than zero. Please try again.") &: this)
+                ZIO.succeed(say"Transfer amount must be greater than zero. Please try again." &: this)
               } else if (transferAmount > user.balance && !user.hasOverdraft) {
-                ZIO.succeed(CallTree.Say("Insufficient funds for this transfer. Please try a smaller amount.") &: this)
+                ZIO.succeed(say"Insufficient funds for this transfer. Please try a smaller amount." &: this)
               } else {
                 ZIO.succeed(
                   CallTree.Say(f"You are about to transfer $$$transferAmount%.2f to account $recipientAccount.") &:
-                    CallTree.Say("Press 1 to confirm, 2 to enter a different amount, or 0 to cancel.") &:
+                    say"Press 1 to confirm, 2 to enter a different amount, or 0 to cancel." &:
                     ConfirmTransferMenu(recipientAccount, transferAmount)
                 )
               }
             case None       =>
-              ZIO.succeed(
-                CallTree.Say("You need to be authenticated to make a transfer. Please try again later.") &: mainMenu
-              )
+              ZIO.succeed(say"You need to be authenticated to make a transfer. Please try again later." &: mainMenu)
           }
-        case _ => ZIO.succeed(CallTree.Say("Invalid amount. Please enter a valid dollar amount.") &: this)
+        case _ => ZIO.succeed(say"Invalid amount. Please enter a valid dollar amount." &: this)
       }
     }
 
     case class ConfirmTransferMenu(recipientAccount: String, amount: Double) extends CallTree.Gather(timeout = 10) {
-      override def message: CallTree.NoContinuation = CallTree.Say("")
+      override def message: CallTree.NoContinuation = say""
 
       override def handle: String => CallTree.Callback = {
         case "1" =>
           ZIO.succeed(
-            CallTree
-              .Say(f"Transfer of $$$amount%.2f to account $recipientAccount has been processed successfully.") &:
-              CallTree.Say("Press 1 to return to the main menu or 0 to end your session.") &:
+            CallTree.Say(f"Transfer of $$$amount%.2f to account $recipientAccount has been processed successfully.") &:
+              say"Press 1 to return to the main menu or 0 to end your session." &:
               returnToMainMenu
           )
         case "2" =>
           ZIO.succeed(
-            CallTree.Say("Please enter a new amount.") &:
+            say"Please enter a new amount." &:
               TransferAmountMenu(recipientAccount)
           )
         case "0" =>
           ZIO.succeed(
-            CallTree.Say("Transfer cancelled.") &:
-              CallTree.Say("Press 1 to return to the main menu or 0 to end your session.") &:
+            say"Transfer cancelled." &:
+              say"Press 1 to return to the main menu or 0 to end your session." &:
               returnToMainMenu
           )
-        case _   => ZIO.succeed(CallTree.Say("Invalid selection. Please try again.") &: this)
+        case _   => ZIO.succeed(say"Invalid selection. Please try again." &: this)
       }
     }
 
@@ -239,38 +226,32 @@ object ComplexIvrExampleTest extends ZIOSpecDefault {
       override def handle: String => CallTree.Callback = {
         case "1" =>
           ZIO.succeed(
-            CallTree
-              .Say("To report a lost or stolen card, please call our 24-hour emergency line at 1-800-555-0123.") &:
-              CallTree.Say("Press 1 to return to the main menu or 0 to end your session.") &:
+            say"To report a lost or stolen card, please call our 24-hour emergency line at 1-800-555-0123." &:
+              say"Press 1 to return to the main menu or 0 to end your session." &:
               returnToMainMenu
           )
         case "2" =>
           ZIO.succeed(
-            CallTree
-              .Say(
-                "Please hold while we connect you to a customer service representative. Your call is important to us."
-              )
+            say"Please hold while we connect you to a customer service representative. Your call is important to us."
           )
         case "3" =>
           ZIO.succeed(
-            CallTree.Say("Please leave your message after the tone. Press # when finished.") &:
+            say"Please leave your message after the tone. Press # when finished." &:
               leaveMessageTree
           )
         case "0" => ZIO.succeed(mainMenu)
-        case _   => ZIO.succeed(CallTree.Say("Invalid selection. Please try again.") &: this)
+        case _   => ZIO.succeed(say"Invalid selection. Please try again." &: this)
       }
     }
 
     object returnToMainMenu extends CallTree.Gather(timeout = 10) {
-      override def message: CallTree.NoContinuation = CallTree.Say("")
+      override def message: CallTree.NoContinuation = say""
 
       override def handle: String => CallTree.Callback = {
         case "1" => ZIO.succeed(mainMenu)
         case "0" =>
-          ZIO.succeed(
-            CallTree.Say("Thank you for using SecureBank telephone banking. Your session has ended. Goodbye.")
-          )
-        case _   => ZIO.succeed(CallTree.Say("Invalid selection. Please try again.") &: this)
+          ZIO.succeed(say"Thank you for using SecureBank telephone banking. Your session has ended. Goodbye.")
+        case _   => ZIO.succeed(say"Invalid selection. Please try again." &: this)
       }
     }
 
@@ -278,9 +259,8 @@ object ComplexIvrExampleTest extends ZIOSpecDefault {
       new CallTree.Record {
         override def handle(recordingUrl: URL, terminator: Option[RecordingResult.Terminator]): CallTree.Callback =
           ZIO.succeed(
-            CallTree
-              .Say("Thank you for your message. A customer service representative will contact you within 24 hours.") &:
-              CallTree.Say("Press 1 to return to the main menu or 0 to end your session.") &:
+            say"Thank you for your message. A customer service representative will contact you within 24 hours." &:
+              say"Press 1 to return to the main menu or 0 to end your session." &:
               returnToMainMenu
           )
       }

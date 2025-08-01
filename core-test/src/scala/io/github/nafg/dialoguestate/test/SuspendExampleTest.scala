@@ -1,6 +1,7 @@
 package io.github.nafg.dialoguestate.test
 
 import io.github.nafg.dialoguestate.*
+import io.github.nafg.dialoguestate.ToSay.interpolator
 
 import zio.*
 import zio.test.*
@@ -10,7 +11,7 @@ import zio.test.*
 object SuspendExampleTest extends ZIOSpecDefault {
   private object simpleSuspendTree extends CallTree.Suspend {
     override def continue: CallTree.Callback =
-      ZIO.succeed(CallTree.Say("Suspension completed successfully"))
+      ZIO.succeed(say"Suspension completed successfully")
   }
 
   override def spec: Spec[TestEnvironment, Any] = suite("CallTree.Suspend Test")(
@@ -24,9 +25,9 @@ object SuspendExampleTest extends ZIOSpecDefault {
       case class CounterSuspendTree(counter: Int) extends CallTree.Suspend {
         override def continue: CallTree.Callback =
           if (counter >= 5)
-            ZIO.succeed(CallTree.Say("Counter: 5"))
+            ZIO.succeed(say"Counter: 5")
           else
-            ZIO.succeed(CallTree.Say(s"Counter: $counter") &: CounterSuspendTree(counter + 1))
+            ZIO.succeed(say"Counter: $counter" &: CounterSuspendTree(counter + 1))
       }
       for {
         tester <- CallTreeTester(CounterSuspendTree(0))
@@ -40,7 +41,7 @@ object SuspendExampleTest extends ZIOSpecDefault {
         override def continue: CallTree.Callback = {
           retryCounter += 1
           if (retryCounter >= 3)
-            ZIO.succeed(CallTree.Say("Status check complete, continuing..."))
+            ZIO.succeed(say"Status check complete, continuing...")
           else
             ZIO.fail(Left(s"Please wait, checking status... ($retryCounter)"))
         }
@@ -58,9 +59,9 @@ object SuspendExampleTest extends ZIOSpecDefault {
       object suspendWithSequenceTree extends CallTree.Suspend {
         override def continue: CallTree.Callback =
           ZIO.succeed(
-            CallTree.Say("First message") &:
-              CallTree.Say("Second message") &:
-              CallTree.Say("Third message")
+            say"First message" &:
+              say"Second message" &:
+              say"Third message"
           )
       }
       for {
@@ -72,7 +73,7 @@ object SuspendExampleTest extends ZIOSpecDefault {
       object contextAwareSuspendTree extends CallTree.Suspend {
         override def continue: CallTree.Callback =
           ZIO.serviceWith[CallInfo] { info =>
-            CallTree.Say(s"Hello caller from ${info.from} to ${info.to}")
+            say"Hello caller from ${info.from} to ${info.to}"
           }
       }
       val customCallInfo = CallInfo(callId = "test-123", from = "+15551234567", to = "+15559876543")
@@ -85,10 +86,10 @@ object SuspendExampleTest extends ZIOSpecDefault {
       object nestedSuspendTree extends CallTree.Suspend {
         object secondSuspendTree extends CallTree.Suspend {
           override def continue: CallTree.Callback =
-            ZIO.succeed(CallTree.Say("Second suspend completed"))
+            ZIO.succeed(say"Second suspend completed")
         }
         override def continue: CallTree.Callback =
-          ZIO.succeed(CallTree.Say("First suspend completed") &: secondSuspendTree)
+          ZIO.succeed(say"First suspend completed" &: secondSuspendTree)
       }
       for {
         tester <- CallTreeTester(nestedSuspendTree)
@@ -96,7 +97,7 @@ object SuspendExampleTest extends ZIOSpecDefault {
       } yield assertCompletes
     },
     test("suspend within a sequence with other call tree elements") {
-      val mixedTree = CallTree.Say("Before suspend") &: simpleSuspendTree
+      val mixedTree = say"Before suspend" &: simpleSuspendTree
       for {
         tester <- CallTreeTester(mixedTree)
         _      <- tester.expect("Before suspend", "Suspension completed successfully")
@@ -104,12 +105,11 @@ object SuspendExampleTest extends ZIOSpecDefault {
     },
     test("suspend can transition to other CallTree types") {
       object gather         extends CallTree.Gather(numDigits = 1) {
-        override def message: CallTree.Say =
-          CallTree.Say("Suspended, now gathering digits. Press 1 to continue.")
+        override def message: CallTree.Say = say"Suspended, now gathering digits. Press 1 to continue."
 
         override def handle = {
-          case "1" => ZIO.succeed(CallTree.Say("You pressed 1 after suspension"))
-          case _   => ZIO.succeed(CallTree.Say("Invalid input after suspension"))
+          case "1" => ZIO.succeed(say"You pressed 1 after suspension")
+          case _   => ZIO.succeed(say"Invalid input after suspension")
         }
       }
       object transitionTree extends CallTree.Suspend               {

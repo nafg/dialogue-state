@@ -70,7 +70,7 @@ object CallTree {
 
   case class Say(text: String) extends CallTree with NoContinuation
   object Say {
-    def apply[A](a: A)(implicit A: ToText[A]) = new Say(A.toText(a))
+    def apply[A](a: A)(implicit A: ToSay[A]) = new Say(A.toSay(a))
   }
 
   case class Play(url: URL) extends CallTree.NoContinuation

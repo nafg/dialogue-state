@@ -1,9 +1,11 @@
 package io.github.nafg.dialoguestate
 
+import io.github.nafg.dialoguestate.ToSay.interpolator
+
 import zio.ZIO
 import zio.prelude.NonEmptyList
 
-abstract class Menu[A: ToText](
+abstract class Menu[A: ToSay](
   title: CallTree.NoContinuation,
   override val choices: NonEmptyList[A],
   preposition: String = "for"
@@ -12,7 +14,7 @@ abstract class Menu[A: ToText](
 object Menu {
   abstract class YesNo(title: CallTree.NoContinuation) extends Menu[Boolean](title, NonEmptyList(true, false))
 
-  abstract class Base[A: ToText](title: CallTree.NoContinuation, preposition: String = "for")
+  abstract class Base[A: ToSay](title: CallTree.NoContinuation, preposition: String = "for")
       extends CallTree.Gather.Base(actionOnEmptyResult = true, finishOnKey = None) {
     protected def choices: NonEmptyList[A]
 
@@ -23,7 +25,7 @@ object Menu {
     override def message =
       title &:
         withNums.foldLeft[CallTree.NoContinuation](CallTree.empty) { case (agg, (n, d)) =>
-          agg &: CallTree.Say(s"Press $n $preposition") &: CallTree.Say(d) &: CallTree.Pause()
+          agg &: say"Press $n $preposition" &: CallTree.Say(d) &: CallTree.Pause()
         }
 
     private lazy val WithNumsMap = withNums.toMap
@@ -42,7 +44,7 @@ object Menu {
     /** Like [[Value]] but uses [[sourcecode.Name]] for the name */
     protected def sourcecodeNamedValue(implicit name: sourcecode.Name): Value = Value(name.value)
 
-    implicit def toText: ToText[Value] = ToText { value =>
+    implicit def toSay: ToSay[Value] = ToSay { value =>
       value.toString
     }
 

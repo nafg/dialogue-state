@@ -1,6 +1,7 @@
 package io.github.nafg.dialoguestate.test
 
 import io.github.nafg.dialoguestate.*
+import io.github.nafg.dialoguestate.ToSay.interpolator
 
 import zio.*
 import zio.http.*
@@ -20,11 +21,11 @@ object SurveyExampleTest extends ZIOSpecDefault {
     override def handle: String => CallTree.Callback = {
       case "1" =>
         ZIO.succeed(
-          CallTree.Say("Great! Let's get started with the survey.") &:
+          say"Great! Let's get started with the survey." &:
             productSatisfactionQuestion
         )
-      case "2" => ZIO.succeed(CallTree.Say("We understand. Thank you for your time. Goodbye."))
-      case _   => ZIO.succeed(CallTree.Say("Invalid selection. Please try again.") &: this)
+      case "2" => ZIO.succeed(say"We understand. Thank you for your time. Goodbye.")
+      case _   => ZIO.succeed(say"Invalid selection. Please try again." &: this)
     }
   }
 
@@ -40,20 +41,20 @@ object SurveyExampleTest extends ZIOSpecDefault {
         val ratingNum = rating.toInt
         if (ratingNum <= 2)
           ZIO.succeed(
-            CallTree.Say(s"We're sorry to hear that you rated us $rating out of 5.") &:
+            say"We're sorry to hear that you rated us $rating out of 5." &:
               lowSatisfactionFollowUp
           )
         else if (ratingNum == 3)
           ZIO.succeed(
-            CallTree.Say(s"Thank you for rating us $rating out of 5.") &:
+            say"Thank you for rating us $rating out of 5." &:
               neutralSatisfactionFollowUp
           )
         else
           ZIO.succeed(
-            CallTree.Say(s"We're glad to hear that you rated us $rating out of 5!") &:
+            say"We're glad to hear that you rated us $rating out of 5!" &:
               highSatisfactionFollowUp
           )
-      case _ => ZIO.succeed(CallTree.Say("Invalid rating. Please enter a number from 1 to 5.") &: this)
+      case _ => ZIO.succeed(say"Invalid rating. Please enter a number from 1 to 5." &: this)
     }
   }
 
@@ -67,25 +68,25 @@ object SurveyExampleTest extends ZIOSpecDefault {
     override def handle: String => CallTree.Callback = {
       case "1" =>
         ZIO.succeed(
-          CallTree.Say("We're sorry about the quality issues you experienced.") &:
+          say"We're sorry about the quality issues you experienced." &:
             improvementSuggestionRecording("quality")
         )
       case "2" =>
         ZIO.succeed(
-          CallTree.Say("We're sorry about the functionality issues you experienced.") &:
+          say"We're sorry about the functionality issues you experienced." &:
             improvementSuggestionRecording("functionality")
         )
       case "3" =>
         ZIO.succeed(
-          CallTree.Say("We're sorry about the customer service issues you experienced.") &:
+          say"We're sorry about the customer service issues you experienced." &:
             improvementSuggestionRecording("customer service")
         )
       case "4" =>
         ZIO.succeed(
-          CallTree.Say("We're sorry you found our pricing unsatisfactory.") &:
+          say"We're sorry you found our pricing unsatisfactory." &:
             improvementSuggestionRecording("pricing")
         )
-      case _   => ZIO.succeed(CallTree.Say("Invalid selection. Please try again.") &: this)
+      case _   => ZIO.succeed(say"Invalid selection. Please try again." &: this)
     }
   }
 
@@ -99,10 +100,10 @@ object SurveyExampleTest extends ZIOSpecDefault {
     override def handle: String => CallTree.Callback = {
       case "1" | "2" | "3" | "4" =>
         ZIO.succeed(
-          CallTree.Say("Thank you for your feedback.") &:
+          say"Thank you for your feedback." &:
             improvementSuggestionRecording("our product")
         )
-      case _                     => ZIO.succeed(CallTree.Say("Invalid selection. Please try again.") &: this)
+      case _                     => ZIO.succeed(say"Invalid selection. Please try again." &: this)
     }
   }
 
@@ -116,25 +117,25 @@ object SurveyExampleTest extends ZIOSpecDefault {
     override def handle: String => CallTree.Callback = {
       case "1" =>
         ZIO.succeed(
-          CallTree.Say("We're glad you appreciated the quality of our product.") &:
+          say"We're glad you appreciated the quality of our product." &:
             recommendationQuestion
         )
       case "2" =>
         ZIO.succeed(
-          CallTree.Say("We're glad you found the functionality of our product satisfactory.") &:
+          say"We're glad you found the functionality of our product satisfactory." &:
             recommendationQuestion
         )
       case "3" =>
         ZIO.succeed(
-          CallTree.Say("We're glad you had a positive customer service experience.") &:
+          say"We're glad you had a positive customer service experience." &:
             recommendationQuestion
         )
       case "4" =>
         ZIO.succeed(
-          CallTree.Say("We're glad you found our pricing satisfactory.") &:
+          say"We're glad you found our pricing satisfactory." &:
             recommendationQuestion
         )
-      case _   => ZIO.succeed(CallTree.Say("Invalid selection. Please try again.") &: this)
+      case _   => ZIO.succeed(say"Invalid selection. Please try again." &: this)
     }
   }
 
@@ -142,12 +143,12 @@ object SurveyExampleTest extends ZIOSpecDefault {
     object record extends CallTree.Record {
       override def handle(recordingUrl: URL, terminator: Option[RecordingResult.Terminator]): CallTree.Callback =
         ZIO.succeed(
-          CallTree.Say(s"Thank you for your suggestions on how we can improve our $aspect.") &:
+          say"Thank you for your suggestions on how we can improve our $aspect." &:
             recommendationQuestion
         )
     }
 
-    CallTree.Say(s"Please tell us how we could improve our $aspect after the tone. Press # when finished.") &: record
+    say"Please tell us how we could improve our $aspect after the tone. Press # when finished." &: record
   }
 
   private object recommendationQuestion extends CallTree.Gather(numDigits = 1, timeout = 10) {
@@ -163,21 +164,21 @@ object SurveyExampleTest extends ZIOSpecDefault {
         val ratingNum = rating.toInt
         if (ratingNum >= 9)
           ZIO.succeed(
-            CallTree.Say("Thank you for being a promoter of our product!") &:
+            say"Thank you for being a promoter of our product!" &:
               testimonialRequest
           )
         else if (ratingNum >= 7)
           ZIO.succeed(
-            CallTree.Say("Thank you for your feedback.") &:
+            say"Thank you for your feedback." &:
               additionalCommentsQuestion
           )
         else
           ZIO.succeed(
-            CallTree.Say("We appreciate your honest feedback.") &:
+            say"We appreciate your honest feedback." &:
               additionalCommentsQuestion
           )
       case _                                    =>
-        ZIO.succeed(CallTree.Say("Invalid rating. Please enter a number from 0 to 10.") &: this)
+        ZIO.succeed(say"Invalid rating. Please enter a number from 0 to 10." &: this)
     }
   }
 
@@ -192,11 +193,11 @@ object SurveyExampleTest extends ZIOSpecDefault {
       case "1" => ZIO.succeed(testimonialRecording)
       case "2" =>
         ZIO.succeed(
-          CallTree.Say("No problem. We understand.") &:
+          say"No problem. We understand." &:
             additionalCommentsQuestion
         )
       case _   =>
-        ZIO.succeed(CallTree.Say("Invalid selection. Please try again.") &: this)
+        ZIO.succeed(say"Invalid selection. Please try again." &: this)
     }
   }
 
@@ -204,12 +205,12 @@ object SurveyExampleTest extends ZIOSpecDefault {
     object record extends CallTree.Record {
       override def handle(recordingUrl: URL, terminator: Option[RecordingResult.Terminator]): CallTree.Callback =
         ZIO.succeed(
-          CallTree.Say("Thank you for your testimonial! We really appreciate your support.") &:
+          say"Thank you for your testimonial! We really appreciate your support." &:
             additionalCommentsQuestion
         )
     }
 
-    CallTree.Say("Please record your testimonial after the tone. Press # when finished.") &: record
+    say"Please record your testimonial after the tone. Press # when finished." &: record
   }
 
   private object additionalCommentsQuestion extends CallTree.Gather(numDigits = 1, timeout = 10) {
@@ -222,7 +223,7 @@ object SurveyExampleTest extends ZIOSpecDefault {
     override def handle: String => CallTree.Callback = {
       case "1" => ZIO.succeed(additionalCommentsRecording)
       case "2" => ZIO.succeed(surveyConclusion)
-      case _   => ZIO.succeed(CallTree.Say("Invalid selection. Please try again.") &: this)
+      case _   => ZIO.succeed(say"Invalid selection. Please try again." &: this)
     }
   }
 
@@ -232,7 +233,7 @@ object SurveyExampleTest extends ZIOSpecDefault {
         ZIO.succeed(surveyConclusion)
     }
 
-    CallTree.Say("Please record your additional comments after the tone. Press # when finished.") &: record
+    say"Please record your additional comments after the tone. Press # when finished." &: record
   }
 
   private val surveyConclusion: CallTree =
