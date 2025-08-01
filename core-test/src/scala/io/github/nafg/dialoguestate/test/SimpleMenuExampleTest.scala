@@ -9,7 +9,7 @@ import zio.test.*
 /** Test demonstrating a simple menu CallTree
   */
 object SimpleMenuExampleTest extends ZIOSpecDefault {
-  private object menuTree extends CallTree.Gather(numDigits = Some(1)) {
+  private object menuTree extends CallTree.Gather(numDigits = 1) {
     override def message: CallTree.NoContinuation =
       CallTree.Say("Welcome to the test menu. Press 1 for sales, 2 for support, or 3 to record a message.")
 

@@ -94,8 +94,8 @@ abstract class TwilioBaseCallStateServer(
         val node =
           Node.Gather(
             actionOnEmptyResult = gather.actionOnEmptyResult,
-            finishOnKey = gather.finishOnKey,
-            numDigits = gather.numDigits,
+            finishOnKey = gather.finishOnKey.toOption,
+            numDigits = gather.numDigits.toOption,
             timeout = gather.timeout
           )(toNodes(gather.message)*)
         ZIO.succeed(Result(List(node), Some(CallState.AwaitingDigits(gather))))

@@ -9,7 +9,7 @@ import zio.test.*
 /** Test demonstrating CallTree transcription functionality
   */
 object TranscriptionExampleTest extends ZIOSpecDefault {
-  object TranscriptionTree extends CallTree.Gather(numDigits = Some(1), timeout = 10) {
+  object TranscriptionTree extends CallTree.Gather(numDigits = 1, timeout = 10) {
     override def message: CallTree.NoContinuation =
       CallTree.Say(
         "Welcome to the transcription demo. Press 1 to record with transcription, or 2 to record without transcription."
@@ -57,7 +57,7 @@ object TranscriptionExampleTest extends ZIOSpecDefault {
     CallTree.Say("Please speak your message after the tone. Press # when you are finished.") &: record
   }
 
-  private object confirmationMenu extends CallTree.Gather(numDigits = Some(1), timeout = 10) {
+  private object confirmationMenu extends CallTree.Gather(numDigits = 1, timeout = 10) {
     override def message: CallTree.NoContinuation =
       CallTree.Say("Press 1 to record another message or 2 to finish.")
 

@@ -103,7 +103,7 @@ object SuspendExampleTest extends ZIOSpecDefault {
       } yield assertCompletes
     },
     test("suspend can transition to other CallTree types") {
-      object gather         extends CallTree.Gather(numDigits = Some(1)) {
+      object gather         extends CallTree.Gather(numDigits = 1) {
         override def message: CallTree.Say =
           CallTree.Say("Suspended, now gathering digits. Press 1 to continue.")
 
@@ -112,7 +112,7 @@ object SuspendExampleTest extends ZIOSpecDefault {
           case _   => ZIO.succeed(CallTree.Say("Invalid input after suspension"))
         }
       }
-      object transitionTree extends CallTree.Suspend                     {
+      object transitionTree extends CallTree.Suspend               {
         override def continue: CallTree.Callback = ZIO.succeed(gather)
       }
 

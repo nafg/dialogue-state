@@ -8,7 +8,7 @@ import zio.test.*
 /** Test demonstrating that CallTreeTester properly fails on Right errors (crashes)
   */
 object CallTreeTesterErrorHandlingTest extends ZIOSpecDefault {
-  private object crashingGatherTree extends CallTree.Gather(numDigits = Some(1)) {
+  private object crashingGatherTree extends CallTree.Gather(numDigits = 1) {
     class GatherError extends RuntimeException
     override def message: CallTree.NoContinuation    = CallTree.Say("Press any digit to crash")
     override def handle: String => CallTree.Callback = _ => CallTree.error(new GatherError)
@@ -26,7 +26,7 @@ object CallTreeTesterErrorHandlingTest extends ZIOSpecDefault {
       CallTree.error(new PaymentError)
   }
 
-  private object userErrorTree extends CallTree.Gather(numDigits = Some(1)) {
+  private object userErrorTree extends CallTree.Gather(numDigits = 1) {
     override def message: CallTree.NoContinuation    = CallTree.Say("Press 1 for user error")
     override def handle: String => CallTree.Callback = _ => CallTree.invalid("This is a user-friendly error message")
   }

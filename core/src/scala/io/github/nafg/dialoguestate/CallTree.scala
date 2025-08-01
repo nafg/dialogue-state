@@ -4,6 +4,7 @@ import java.time.Duration
 
 import zio.ZIO
 import zio.http.URL
+import zio.prelude.data.Optional
 
 sealed trait CallTree {
   def &:(that: CallTree.NoContinuation): CallTree
@@ -111,8 +112,8 @@ object CallTree {
     */
   abstract class Gather(
     val actionOnEmptyResult: Boolean = true,
-    val finishOnKey: Option[DTMF] = Some('#'),
-    val numDigits: Option[Int] = None,
+    val finishOnKey: Optional[DTMF] = Optional.Present('#'),
+    val numDigits: Optional[Int] = Optional.Absent,
     val timeout: Int = 5
   ) extends CallTree.HasContinuation {
     def message: NoContinuation

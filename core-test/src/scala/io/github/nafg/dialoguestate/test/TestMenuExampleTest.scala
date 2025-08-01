@@ -9,7 +9,7 @@ import zio.test.*
 /** Example tests demonstrating how to use the CallTreeTester framework
   */
 object TestMenuExampleTest extends ZIOSpecDefault {
-  private object menuTree extends CallTree.Gather(numDigits = Some(1)) {
+  private object menuTree extends CallTree.Gather(numDigits = 1) {
     override def message: CallTree.NoContinuation =
       CallTree.Say("Welcome to the test menu. Press 1 for sales, 2 for support, or 3 to record a message.")
 
@@ -30,8 +30,8 @@ object TestMenuExampleTest extends ZIOSpecDefault {
     CallTree.Say("Please record your message after the beep.") &: record
   }
 
-  object MultiLevelMenu extends CallTree.Gather(numDigits = Some(1)) {
-    object salesMenu extends CallTree.Gather(numDigits = Some(1)) {
+  object MultiLevelMenu extends CallTree.Gather(numDigits = 1) {
+    object salesMenu extends CallTree.Gather(numDigits = 1) {
       override def message: CallTree.NoContinuation =
         CallTree.Say("Sales menu. Press 1 for new accounts, 2 for existing accounts, or 3 to return to the main menu.")
 
@@ -45,7 +45,7 @@ object TestMenuExampleTest extends ZIOSpecDefault {
       }
     }
 
-    object supportMenu extends CallTree.Gather(numDigits = Some(1)) {
+    object supportMenu extends CallTree.Gather(numDigits = 1) {
       override def message: CallTree.NoContinuation =
         CallTree.Say(
           "Support menu. Press 1 for technical support, 2 for billing support, or 3 to return to the main menu."
@@ -70,8 +70,8 @@ object TestMenuExampleTest extends ZIOSpecDefault {
     }
   }
 
-  object SurveyFlow extends CallTree.Gather(numDigits = Some(1)) {
-    object satisfactionQuestion extends CallTree.Gather(numDigits = Some(1), timeout = 10) {
+  object SurveyFlow extends CallTree.Gather(numDigits = 1) {
+    object satisfactionQuestion extends CallTree.Gather(numDigits = 1, timeout = 10) {
       override def message: CallTree.NoContinuation =
         CallTree.Say("On a scale of 1 to 5, how satisfied are you with our service? Press a number from 1 to 5.")
 
