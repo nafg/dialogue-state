@@ -252,16 +252,19 @@ object CallTreeTester {
       *   representing the search result, and the rest of the nodes after removing the result.
       */
     private def search[A](description: String)(f: List[Node] => Option[(A, List[Node])]): Task[A] = {
-      @tailrec
-      def processText(nodes: List[Node]): Task[(A, List[Node])] =
-        f(nodes) match {
-          case Some((matching, remnant)) => ZIO.succeed((matching, remnant))
-          case None                      =>
-            nodes match {
-              case head :: tail => processText(tail)
-              case Nil          => ZIO.fail(MissingExpectedTextException(description, nodes))
-            }
-        }
+      def processText(nodes: List[Node]): Task[(A, List[Node])] = {
+        @tailrec
+        def loop(currentNodes: List[Node]): Task[(A, List[Node])] =
+          f(currentNodes) match {
+            case Some((matching, remnant)) => ZIO.succeed((matching, remnant))
+            case None                      =>
+              currentNodes match {
+                case head :: tail => loop(tail)
+                case Nil          => ZIO.fail(MissingExpectedTextException(description, nodes))
+              }
+          }
+        loop(nodes)
+      }
 
       for {
         state    <- stateRef.get
