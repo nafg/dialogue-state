@@ -9,7 +9,10 @@ case class ToSay[-A](toSay: A => String) {
 }
 
 object ToSay {
-  def apply[A](implicit A: ToSay[A])            = A
+  def apply[A](implicit A: ToSay[A]) = A
+
+  def make[A](f: A => String): ToSay[A] = new ToSay(f)
+
   implicit val booleanToSay: ToSay[Boolean]     = new ToSay({
     case true  => "Yes"
     case false => "No"
