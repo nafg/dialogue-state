@@ -9,15 +9,14 @@ import zio.test.*
 /** Example tests demonstrating how to use the CallTreeTester framework
   */
 object TestMenuExampleTest extends ZIOSpecDefault {
-  private object menuTree extends CallTree.Gather(numDigits = 1) {
-    override def message: CallTree.NoContinuation =
-      CallTree.Say("Welcome to the test menu. Press 1 for sales, 2 for support, or 3 to record a message.")
-
-    override def handle: String => CallTree.Callback = {
-      case "1" => ZIO.succeed(CallTree.Say("You selected sales."))
-      case "2" => ZIO.succeed(CallTree.Say("You selected support."))
-      case "3" => ZIO.succeed(recordMessageTree)
-      case _   => ZIO.succeed(CallTree.Say("Invalid selection.") &: this)
+  private object MainOptions extends Menu.Options                                                {
+    val Sales, Support, `Record a message` = sourcecodeNamedValue
+  }
+  private object menuTree    extends MainOptions.Menu(CallTree.Say("Welcome to the test menu.")) {
+    override def handleOption = {
+      case MainOptions.Sales              => ZIO.succeed(CallTree.Say("You selected sales."))
+      case MainOptions.Support            => ZIO.succeed(CallTree.Say("You selected support."))
+      case MainOptions.`Record a message` => ZIO.succeed(recordMessageTree)
     }
   }
 
@@ -99,7 +98,7 @@ object TestMenuExampleTest extends ZIOSpecDefault {
       for {
         tester <- CallTreeTester(menuTree)
         _      <- tester.expect("Welcome to the test menu")
-        _      <- tester.sendDigits("1")
+        _      <- tester.choose("Sales")
         _      <- tester.expect("You selected sales")
       } yield assertCompletes
     },
@@ -107,7 +106,7 @@ object TestMenuExampleTest extends ZIOSpecDefault {
       for {
         tester <- CallTreeTester(menuTree)
         _      <- tester.sendDigits("9")
-        _      <- tester.expect("Invalid selection")
+        _      <- tester.expect("That is not one of the choices")
         _      <- tester.sendDigits("")
       } yield assertCompletes
     },

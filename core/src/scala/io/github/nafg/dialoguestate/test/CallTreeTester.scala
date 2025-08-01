@@ -1,5 +1,6 @@
 package io.github.nafg.dialoguestate.test
 
+import scala.annotation.tailrec
 import scala.io.AnsiColor
 
 import io.github.nafg.dialoguestate.*
@@ -40,7 +41,7 @@ object CallTreeTester {
 
     /** The call is waiting for digits input
       */
-    case class AwaitingDigits(gather: CallTree.Gather, message: List[Node]) extends TestCallState
+    case class AwaitingDigits(gather: CallTree.Gather.Base, message: List[Node]) extends TestCallState
 
     /** The call is waiting for a recording to complete
       */
@@ -118,7 +119,7 @@ object CallTreeTester {
               case otherState                      => ZIO.succeed((Some(otherState), accNodes))
             }
 
-          case gather: CallTree.Gather =>
+          case gather: CallTree.Gather.Base =>
             val messageNodes = toNodes(gather.message)
             val allNodes     = accNodes ++ messageNodes
             ZIO.succeed((Some(TestCallState.AwaitingDigits(gather, messageNodes)), allNodes))
@@ -239,49 +240,85 @@ object CallTreeTester {
       } <*
         ZIO.logInfo(" 🏁 Call ended")
 
+    /** Returns the text of the next `Say` for which `f` is defined.
+      *
+      * State is advanced as necessary.
+      *
+      * @param description
+      *   Description of the text to be expected. Used in error messages.
+      * @param f
+      *   Function that looks at a subset of nodes to find a match. If it doesn't consider the subset a match, it should
+      *   return None. If it does consider the subset a match, it should return a tuple of two things: a value
+      *   representing the search result, and the rest of the nodes after removing the result.
+      */
+    private def search[A](description: String)(f: List[Node] => Option[(A, List[Node])]): Task[A] = {
+      @tailrec
+      def processText(nodes: List[Node]): Task[(A, List[Node])] =
+        f(nodes) match {
+          case Some((matching, remnant)) => ZIO.succeed((matching, remnant))
+          case None                      =>
+            nodes match {
+              case head :: tail => processText(tail)
+              case Nil          => ZIO.fail(MissingExpectedTextException(description, nodes))
+            }
+        }
+
+      for {
+        state    <- stateRef.get
+        matching <- state.callState match {
+                      case TestCallState.Ready(callTree)            =>
+                        interpretTree(callTree, state.accumulatedNodes)
+                          .flatMap { case (callState, nodes) =>
+                            processText(nodes)
+                              .flatMap { case (matching, rest) =>
+                                applyState((callState, rest))
+                                  .as(matching)
+                              }
+                          }
+                      case _ if state.accumulatedNodes.nonEmpty     =>
+                        processText(state.accumulatedNodes).map(_._1)
+                      case TestCallState.AwaitingDigits(_, message) =>
+                        processText(message).map(_._1)
+                      case other                                    =>
+                        ZIO.fail(UnexpectedStateException(s"to hear '$description'", other))
+                    }
+        _        <- ZIO.logInfo(s" 👂 Heard '${highlight(matching.toString)}'")
+      } yield matching
+    }
+
+    def nextSayWith(text: String): Task[String] =
+      search(text) {
+        case Node.Say(say) :: others =>
+          val i = say.indexOf(text)
+          Option.unless(i < 0) {
+            val remnant = say.drop(i + text.length)
+            say -> (if (remnant.isEmpty) others else Node.Say(remnant) :: others)
+          }
+        case _                       =>
+          None
+      }
+
     /** Expects that the call will say the given text, automatically advancing if needed
       */
-    def expect(texts: String*): Task[TestCallState] =
-      ZIO.foreachDiscard(texts) { text =>
-        object suffix {
-          def unapply(string: String) = {
-            val suffix = string.drop(string.indexOf(text) + text.length)
-            Option.unless(suffix.isEmpty)(suffix)
-          }
-        }
-        def processText(nodes: List[Node]): Task[List[Node]] = {
-          val droppedNonMatchingPrefix =
-            nodes.dropWhile {
-              case Node.Say(t) => !t.contains(text)
-              case _           => true
-            }
-          droppedNonMatchingPrefix match {
-            case Nil                         => ZIO.fail(MissingExpectedTextException(text, nodes))
-            case Node.Say(suffix(s)) :: rest => ZIO.succeed(Node.Say(s) +: rest)
-            case _ :: rest                   => ZIO.succeed(rest)
-          }
-        }
+    def expectAndCollectAll(texts: String*): Task[(Seq[String], TestCallState)] =
+      ZIO
+        .foreach(texts)(nextSayWith)
+        .zip(currentState)
 
-        for {
-          state <- stateRef.get
-          res   <- state.callState match {
-                     case TestCallState.Ready(callTree)            =>
-                       interpretTree(callTree, state.accumulatedNodes)
-                         .flatMap { case (callState, nodes) => processText(nodes).map(callState -> _) }
-                         .flatMap(applyState)
-                     case _ if state.accumulatedNodes.nonEmpty     =>
-                       processText(state.accumulatedNodes)
-                     case TestCallState.AwaitingDigits(_, message) =>
-                       processText(message)
-                     case other                                    =>
-                       ZIO.fail(UnexpectedStateException(s"to hear '$text'", other))
-                   }
-          _     <- ZIO.logInfo(s" 👂 Heard '${highlight(text)}'")
-        } yield res
-      } *>
-        currentState
+    def expect(texts: String*): Task[TestCallState] = expectAndCollectAll(texts*).map(_._2)
 
-    def expectAndSend(texts: String*)(digits: String) = expect(texts*) *> sendDigits(digits)
+    def expectAndSend(texts: String*)(digits: String): Task[TestCallState] = expect(texts*) *> sendDigits(digits)
+
+    private val pressRegex = s"Press (\\d+) .*".r
+
+    def choose(option: String): Task[TestCallState] =
+      for {
+        key <- search(s"Menu option $option") {
+                 case Node.Say(pressRegex(num)) :: Node.Say(s) :: others if s.contains(option) => Some((num, others))
+                 case _                                                                        => None
+               }
+        res <- sendDigits(key)
+      } yield res
   }
 
   /** Creates a new tester for the given CallTree

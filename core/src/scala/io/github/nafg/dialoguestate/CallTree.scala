@@ -111,13 +111,21 @@ object CallTree {
     *   TwiML instruction.
     */
   abstract class Gather(
-    val actionOnEmptyResult: Boolean = true,
-    val finishOnKey: Optional[DTMF] = Optional.Present('#'),
-    val numDigits: Optional[Int] = Optional.Absent,
-    val timeout: Int = 5
-  ) extends CallTree.HasContinuation {
-    def message: NoContinuation
-    def handle: String => Callback
+    actionOnEmptyResult: Boolean = true,
+    finishOnKey: Optional[DTMF] = Optional.Present('#'),
+    override val numDigits: Optional[Int] = Optional.Absent,
+    timeout: Int = 5
+  ) extends Gather.Base(actionOnEmptyResult = actionOnEmptyResult, finishOnKey = finishOnKey, timeout = timeout)
+  object Gather {
+    abstract class Base(
+      val actionOnEmptyResult: Boolean = true,
+      val finishOnKey: Optional[DTMF] = Optional.Present('#'),
+      val timeout: Int = 5
+    ) extends CallTree.HasContinuation {
+      def numDigits: Optional[Int] = Optional.Absent
+      def message: NoContinuation
+      def handle: String => Callback
+    }
   }
 
   // noinspection ScalaUnusedSymbol
