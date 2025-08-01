@@ -32,6 +32,7 @@ object CallTree {
   type Callback = CallbackTo[CallTree]
 
   def invalid(message: String): CallbackTo[Nothing]    = ZIO.fail(Left(message))
+  def invalid(message: Say): CallbackTo[Nothing]       = ZIO.fail(Left(message.text))
   def error(message: String): CallbackTo[Nothing]      = ZIO.fail(Right(new RuntimeException(message)))
   def error(throwable: Throwable): CallbackTo[Nothing] = ZIO.fail(Right(throwable))
 
