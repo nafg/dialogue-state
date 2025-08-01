@@ -9,7 +9,7 @@ import zio.test.*
 /** Test demonstrating a multi-level menu CallTree
   */
 object ProductInfoExampleTest extends ZIOSpecDefault {
-  private object productInfoMenu extends CallTree.Gather(numDigits = Some(1), timeout = 8) {
+  private object productInfoMenu extends CallTree.Gather(numDigits = 1, timeout = 8) {
     override def message: CallTree.NoContinuation =
       CallTree.Say(
         "Product Information Menu." +
@@ -44,7 +44,7 @@ object ProductInfoExampleTest extends ZIOSpecDefault {
     }
   }
 
-  private object productSpecificMenu extends CallTree.Gather(numDigits = Some(1), timeout = 8) {
+  private object productSpecificMenu extends CallTree.Gather(numDigits = 1, timeout = 8) {
     override def message: CallTree.NoContinuation =
       CallTree.Say("Press 1 for Product A, 2 for Product B, or 0 to go back.")
 
@@ -66,7 +66,7 @@ object ProductInfoExampleTest extends ZIOSpecDefault {
     }
   }
 
-  private object productADetailMenu extends CallTree.Gather(numDigits = Some(1), timeout = 8) {
+  private object productADetailMenu extends CallTree.Gather(numDigits = 1, timeout = 8) {
     override def message: CallTree.NoContinuation =
       CallTree.Say("Press 1 for technical specifications, 2 for pricing, or 0 to go back.")
 
@@ -86,7 +86,7 @@ object ProductInfoExampleTest extends ZIOSpecDefault {
     }
   }
 
-  private object productBDetailMenu extends CallTree.Gather(numDigits = Some(1), timeout = 8) {
+  private object productBDetailMenu extends CallTree.Gather(numDigits = 1, timeout = 8) {
     override def message: CallTree.NoContinuation =
       CallTree.Say("Press 1 for technical specifications, 2 for pricing, or 0 to go back.")
 
@@ -106,7 +106,7 @@ object ProductInfoExampleTest extends ZIOSpecDefault {
     }
   }
 
-  private object supportMenu extends CallTree.Gather(numDigits = Some(1), timeout = 8) {
+  private object supportMenu extends CallTree.Gather(numDigits = 1, timeout = 8) {
     override def message: CallTree.NoContinuation =
       CallTree.Say(
         "Support Menu." +
@@ -139,7 +139,7 @@ object ProductInfoExampleTest extends ZIOSpecDefault {
     }
   }
 
-  private object techSupportMenu extends CallTree.Gather(numDigits = Some(1), timeout = 8) {
+  private object techSupportMenu extends CallTree.Gather(numDigits = 1, timeout = 8) {
     override def message: CallTree.NoContinuation =
       CallTree.Say("Press 1 to speak with a technical support representative or 0 to go back.")
 
@@ -155,7 +155,7 @@ object ProductInfoExampleTest extends ZIOSpecDefault {
     }
   }
 
-  private object billingMenu extends CallTree.Gather(numDigits = Some(1), timeout = 8) {
+  private object billingMenu extends CallTree.Gather(numDigits = 1, timeout = 8) {
     override def message: CallTree.NoContinuation =
       CallTree.Say("Press 1 to speak with a billing representative or 0 to go back.")
 
@@ -172,7 +172,7 @@ object ProductInfoExampleTest extends ZIOSpecDefault {
   private val problemReportingTree: CallTree = {
     object record extends CallTree.Record {
       override def handle(recordingUrl: URL, terminator: Option[RecordingResult.Terminator]): CallTree.Callback = {
-        object responseTree extends CallTree.Gather(numDigits = Some(1), timeout = 8) {
+        object responseTree extends CallTree.Gather(numDigits = 1, timeout = 8) {
           override def message: CallTree.NoContinuation = CallTree.Say("")
 
           override def handle: String => CallTree.Callback = {
@@ -195,7 +195,7 @@ object ProductInfoExampleTest extends ZIOSpecDefault {
     CallTree.Say("Please describe the problem you're experiencing after the tone. Press # when finished.") &: record
   }
 
-  private object salesMenu extends CallTree.Gather(numDigits = Some(1), timeout = 8) {
+  private object salesMenu extends CallTree.Gather(numDigits = 1, timeout = 8) {
     override def message: CallTree.NoContinuation =
       CallTree.Say(
         "Sales Menu. Press 1 for new orders, 2 for order status, 3 for returns, or 0 to return to the main menu."
@@ -225,7 +225,7 @@ object ProductInfoExampleTest extends ZIOSpecDefault {
     }
   }
 
-  private object newOrdersMenu extends CallTree.Gather(numDigits = Some(1), timeout = 8) {
+  private object newOrdersMenu extends CallTree.Gather(numDigits = 1, timeout = 8) {
     override def message: CallTree.NoContinuation =
       CallTree.Say("Press 1 to speak with a sales representative or 0 to go back.")
 
@@ -239,7 +239,7 @@ object ProductInfoExampleTest extends ZIOSpecDefault {
     }
   }
 
-  private object orderStatusMenu extends CallTree.Gather(numDigits = Some(1), timeout = 8) {
+  private object orderStatusMenu extends CallTree.Gather(numDigits = 1, timeout = 8) {
     override def message: CallTree.NoContinuation =
       CallTree.Say("Press 1 to speak with a representative about your order status or 0 to go back.")
 
@@ -251,7 +251,7 @@ object ProductInfoExampleTest extends ZIOSpecDefault {
     }
   }
 
-  private object returnsMenu extends CallTree.Gather(numDigits = Some(1), timeout = 8) {
+  private object returnsMenu extends CallTree.Gather(numDigits = 1, timeout = 8) {
     override def message: CallTree.NoContinuation =
       CallTree.Say("Press 1 to speak with a representative about returns or 0 to go back.")
 
@@ -263,7 +263,7 @@ object ProductInfoExampleTest extends ZIOSpecDefault {
     }
   }
 
-  private object mainMenu extends CallTree.Gather(numDigits = Some(1), timeout = 10) {
+  private object mainMenu extends CallTree.Gather(numDigits = 1, timeout = 10) {
     override def message: CallTree.NoContinuation =
       CallTree.Say(
         "Welcome to our customer service system." +

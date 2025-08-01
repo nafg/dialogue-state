@@ -146,7 +146,7 @@ object ComplexIvrExampleTest extends ZIOSpecDefault {
       }
     }
 
-    object externalTransferMenu extends CallTree.Gather(timeout = 15) {
+    object externalTransferMenu extends CallTree.Gather(timeout = 15, finishOnKey = '#') {
       override def message: CallTree.NoContinuation =
         CallTree.Say("Please enter the 8-digit account number of the recipient followed by the pound key.")
 

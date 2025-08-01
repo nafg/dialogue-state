@@ -2,6 +2,8 @@ package io.github.nafg.dialoguestate
 
 import scala.annotation.unused
 
+import zio.prelude.data.Optional
+
 case class DTMF private (value: Char) extends AnyVal {
   override def toString: String = value.toString
 }
@@ -23,6 +25,9 @@ object DTMF {
   }
 
   implicit def apply[C <: Char & Singleton](@unused c: C)(implicit toDTMF: ToDTMF[C]): DTMF = new DTMF(toDTMF.value)
+
+  implicit def optional[C <: Char & Singleton](@unused c: C)(implicit toDTMF: ToDTMF[C]): Optional[DTMF] =
+    Optional.Present(new DTMF(toDTMF.value))
 
   def unapply(dtmf: DTMF): Option[Char] = Some(dtmf.value)
 

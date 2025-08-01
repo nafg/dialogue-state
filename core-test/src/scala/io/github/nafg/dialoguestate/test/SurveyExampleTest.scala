@@ -9,7 +9,7 @@ import zio.test.*
 /** Test demonstrating a survey CallTree with branching logic
   */
 object SurveyExampleTest extends ZIOSpecDefault {
-  private object surveyIntro extends CallTree.Gather(numDigits = Some(1), timeout = 10) {
+  private object surveyIntro extends CallTree.Gather(numDigits = 1, timeout = 10) {
     override def message: CallTree.NoContinuation =
       CallTree.Say(
         "Thank you for participating in our customer satisfaction survey. " +
@@ -28,7 +28,7 @@ object SurveyExampleTest extends ZIOSpecDefault {
     }
   }
 
-  private object productSatisfactionQuestion extends CallTree.Gather(numDigits = Some(1), timeout = 10) {
+  private object productSatisfactionQuestion extends CallTree.Gather(numDigits = 1, timeout = 10) {
     override def message: CallTree.NoContinuation =
       CallTree.Say(
         "On a scale of 1 to 5, where 1 is very dissatisfied and 5 is very satisfied, " +
@@ -57,7 +57,7 @@ object SurveyExampleTest extends ZIOSpecDefault {
     }
   }
 
-  private object lowSatisfactionFollowUp extends CallTree.Gather(numDigits = Some(1), timeout = 10) {
+  private object lowSatisfactionFollowUp extends CallTree.Gather(numDigits = 1, timeout = 10) {
     override def message: CallTree.NoContinuation =
       CallTree.Say(
         "We'd like to understand what went wrong. What aspect of our product were you most dissatisfied with? " +
@@ -89,7 +89,7 @@ object SurveyExampleTest extends ZIOSpecDefault {
     }
   }
 
-  private object neutralSatisfactionFollowUp extends CallTree.Gather(numDigits = Some(1), timeout = 10) {
+  private object neutralSatisfactionFollowUp extends CallTree.Gather(numDigits = 1, timeout = 10) {
     override def message: CallTree.NoContinuation =
       CallTree.Say(
         "What aspect of our product could we improve to increase your satisfaction? " +
@@ -106,7 +106,7 @@ object SurveyExampleTest extends ZIOSpecDefault {
     }
   }
 
-  private object highSatisfactionFollowUp extends CallTree.Gather(numDigits = Some(1), timeout = 10) {
+  private object highSatisfactionFollowUp extends CallTree.Gather(numDigits = 1, timeout = 10) {
     override def message: CallTree.NoContinuation =
       CallTree.Say(
         "What aspect of our product did you like the most? " +
@@ -150,7 +150,7 @@ object SurveyExampleTest extends ZIOSpecDefault {
     CallTree.Say(s"Please tell us how we could improve our $aspect after the tone. Press # when finished.") &: record
   }
 
-  private object recommendationQuestion extends CallTree.Gather(numDigits = Some(1), timeout = 10) {
+  private object recommendationQuestion extends CallTree.Gather(numDigits = 1, timeout = 10) {
     override def message: CallTree.NoContinuation =
       CallTree.Say(
         "On a scale of 0 to 10, how likely are you to recommend our product to a friend or colleague? " +
@@ -181,7 +181,7 @@ object SurveyExampleTest extends ZIOSpecDefault {
     }
   }
 
-  private object testimonialRequest extends CallTree.Gather(numDigits = Some(1), timeout = 10) {
+  private object testimonialRequest extends CallTree.Gather(numDigits = 1, timeout = 10) {
     override def message: CallTree.NoContinuation =
       CallTree.Say(
         "Would you be willing to provide a testimonial about your experience with our product? " +
@@ -212,7 +212,7 @@ object SurveyExampleTest extends ZIOSpecDefault {
     CallTree.Say("Please record your testimonial after the tone. Press # when finished.") &: record
   }
 
-  private object additionalCommentsQuestion extends CallTree.Gather(numDigits = Some(1), timeout = 10) {
+  private object additionalCommentsQuestion extends CallTree.Gather(numDigits = 1, timeout = 10) {
     override def message: CallTree.NoContinuation =
       CallTree.Say(
         "Would you like to provide any additional comments about our product? " +

@@ -9,7 +9,7 @@ import zio.test.*
 /** Test demonstrating CallTree recording functionality
   */
 object VoicemailExampleTest extends ZIOSpecDefault {
-  object VoicemailTree extends CallTree.Gather(numDigits = Some(1), timeout = 10) {
+  object VoicemailTree extends CallTree.Gather(numDigits = 1, timeout = 10) {
     override def message: CallTree.NoContinuation =
       CallTree.Say(
         "Welcome to the voicemail system. " +
@@ -63,7 +63,7 @@ object VoicemailExampleTest extends ZIOSpecDefault {
     CallTree.Say("Please leave your feedback after the tone. Press # when you are finished.") &: record
   }
 
-  private object confirmationMenu extends CallTree.Gather(numDigits = Some(1), timeout = 10) {
+  private object confirmationMenu extends CallTree.Gather(numDigits = 1, timeout = 10) {
     override def message: CallTree.NoContinuation =
       CallTree.Say("Press 1 to listen to your recording, 2 to re-record, or 3 to finish.")
 
