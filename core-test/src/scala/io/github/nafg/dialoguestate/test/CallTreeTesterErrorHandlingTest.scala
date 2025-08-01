@@ -1,6 +1,7 @@
 package io.github.nafg.dialoguestate.test
 
 import io.github.nafg.dialoguestate.*
+import io.github.nafg.dialoguestate.ToSay.interpolator
 
 import zio.http.*
 import zio.test.*
@@ -10,7 +11,7 @@ import zio.test.*
 object CallTreeTesterErrorHandlingTest extends ZIOSpecDefault {
   private object crashingGatherTree extends CallTree.Gather(numDigits = 1) {
     class GatherError extends RuntimeException
-    override def message: CallTree.NoContinuation    = CallTree.Say("Press any digit to crash")
+    override def message: CallTree.NoContinuation    = say"Press any digit to crash"
     override def handle: String => CallTree.Callback = _ => CallTree.error(new GatherError)
   }
 
@@ -27,7 +28,7 @@ object CallTreeTesterErrorHandlingTest extends ZIOSpecDefault {
   }
 
   private object userErrorTree extends CallTree.Gather(numDigits = 1) {
-    override def message: CallTree.NoContinuation    = CallTree.Say("Press 1 for user error")
+    override def message: CallTree.NoContinuation    = say"Press 1 for user error"
     override def handle: String => CallTree.Callback = _ => CallTree.invalid("This is a user-friendly error message")
   }
 
@@ -48,7 +49,7 @@ object CallTreeTesterErrorHandlingTest extends ZIOSpecDefault {
       },
       test("should fail the test when payment callback crashes with Right error") {
         for {
-          tester <- CallTreeTester(CallTree.Say("Please provide payment information") &: crashingPaymentTree)
+          tester <- CallTreeTester(say"Please provide payment information" &: crashingPaymentTree)
           _      <- tester.expect("Please provide payment information")
           exit   <- tester.sendPayment(PaymentResult.Success("payment-id", "charge-id")).exit
         } yield assert(exit)(Assertion.failsWithA[crashingPaymentTree.PaymentError])
