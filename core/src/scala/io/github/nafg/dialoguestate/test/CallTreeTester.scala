@@ -72,9 +72,13 @@ object CallTreeTester {
         s"Expected ${highlight(expectationDescription)} but got ${highlight(actualState.toString)}"
       )
 
-  case class MissingExpectedTextException(expectedText: String, actualText: Seq[Node])
+  case class MissingExpectedTextException(expectedText: String, actualNodes: Seq[Node])
       extends AssertionError(
-        s"Expected to hear '${highlight(expectedText)}' but got: ${actualText.map("\n • " + _).mkString}"
+        s"Expected to hear '${highlight(expectedText)}' but " +
+          (if (actualNodes.isEmpty)
+             "no nodes remain"
+           else
+             s"got: ${actualNodes.map("\n • " + _).mkString}")
       )
 
   /** Represents a tester for a CallTree program
