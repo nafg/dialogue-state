@@ -272,7 +272,7 @@ object CallTreeTester {
                      case other                                    =>
                        ZIO.fail(UnexpectedStateException(s"to hear '$text'", other))
                    }
-          _     <- ZIO.logInfo(s" ✅ Heard '${highlight(text)}'")
+          _     <- ZIO.logInfo(s" 👂 Heard '${highlight(text)}'")
         } yield res
       } *>
         currentState
