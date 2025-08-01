@@ -90,7 +90,7 @@ abstract class TwilioBaseCallStateServer(
   override protected def interpretTree(callTree: CallTree): UIO[Result] =
     callTree match {
       case noCont: CallTree.NoContinuation              => ZIO.succeed(Result(toNodes(noCont)))
-      case gather: CallTree.Gather                      =>
+      case gather: CallTree.Gather.Base                 =>
         val node =
           Node.Gather(
             actionOnEmptyResult = gather.actionOnEmptyResult,
