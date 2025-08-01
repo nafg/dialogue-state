@@ -14,7 +14,7 @@ object PaymentExampleTest extends ZIOSpecDefault {
     object pay extends CallTree.Pay.OneTime("Payment for order #12345") {
       override def handle(paymentResult: PaymentResult): CallTree.Callback =
         paymentResult match {
-          case PaymentResult.Success(profileId, paymentToken)              =>
+          case PaymentResult.Success(paymentToken, _, _, _, _, _)          =>
             ZIO.succeed(
               say"Payment successful! Your transaction ID is $paymentToken." &:
                 say"Thank you for your payment. Have a great day!"
@@ -52,7 +52,7 @@ object PaymentExampleTest extends ZIOSpecDefault {
       for {
         tester <- CallTreeTester(paymentTree)
         _      <- tester.expect("Please provide your payment information")
-        _      <- tester.sendPayment(PaymentResult.Success("profile123", "token456"))
+        _      <- tester.sendPayment(PaymentResult.Success("token456", Some("profile123")))
         _      <- tester.expect("Payment successful!", "Your transaction ID is token456", "Thank you for your payment")
       } yield assertCompletes
     },
