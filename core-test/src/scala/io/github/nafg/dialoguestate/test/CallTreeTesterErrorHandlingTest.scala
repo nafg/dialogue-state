@@ -51,7 +51,7 @@ object CallTreeTesterErrorHandlingTest extends ZIOSpecDefault {
         for {
           tester <- CallTreeTester(say"Please provide payment information" &: crashingPaymentTree)
           _      <- tester.expect("Please provide payment information")
-          exit   <- tester.sendPayment(PaymentResult.Success("payment-id", "charge-id")).exit
+          exit   <- tester.sendPayment(PaymentResult.Success("payment-token-123")).exit
         } yield assert(exit)(Assertion.failsWithA[crashingPaymentTree.PaymentError])
       },
       test("should still handle Left errors (user errors) gracefully") {

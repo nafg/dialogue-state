@@ -1,5 +1,8 @@
 package io.github.nafg.dialoguestate.twilio
 
+import java.time.YearMonth
+import java.time.format.DateTimeFormatter
+
 import io.github.nafg.dialoguestate.twilio.base.{HtmlUi, Node, TwilioBaseCallStateServer, Voice}
 import io.github.nafg.dialoguestate.{CallInfo, CallTree, PaymentResult, RequestVerificationMiddlewareService}
 
@@ -21,6 +24,8 @@ class TwilioCallStateServer(
   override protected def toNode(pay: CallTree.Pay): Node.Pay =
     Node.Pay(paymentConnector = paymentConnector, description = pay.description, tokenType = pay.tokenType)
 
+  private val expirationFormatter = DateTimeFormatter.ofPattern("MMyy")
+
   override protected def paymentResult(queryParams: QueryParams): ZIO[Any, CallTree.Failure, PaymentResult] =
     queryParams
       .queryZIO[String]("Result")
@@ -38,9 +43,23 @@ class TwilioCallStateServer(
           } yield PaymentResult.Failure.ValidationError(paymentError = paymentError)
         case "success"                      =>
           for {
-            profileId    <- queryParams.queryZIO[String]("ProfileId")
-            paymentToken <- queryParams.queryZIO[String]("PaymentToken")
-          } yield PaymentResult.Success(profileId = profileId, paymentToken = paymentToken)
+            paymentToken        <- queryParams.queryZIO[String]("PaymentToken")
+            profileId            = queryParams.queryParam("ProfileId")
+            paymentMethod        = queryParams.queryParam("PaymentMethod")
+            paymentCardNumber    = queryParams.queryParam("PaymentCardNumber")
+            paymentCardType      = queryParams.queryParam("PaymentCardType")
+            expirationDateString = queryParams.queryParam("ExpirationDate")
+            expirationDate      <- ZIO.foreach(expirationDateString) { str =>
+                                     ZIO.attempt(YearMonth.parse(str, expirationFormatter))
+                                   }
+          } yield PaymentResult.Success(
+            paymentToken = paymentToken,
+            profileId = profileId,
+            paymentMethod = paymentMethod,
+            paymentCardNumber = paymentCardNumber,
+            paymentCardType = paymentCardType,
+            expirationDate = expirationDate
+          )
       }
       .asRightError
 
