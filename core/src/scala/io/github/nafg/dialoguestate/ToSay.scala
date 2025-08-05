@@ -13,16 +13,16 @@ object ToSay {
 
   def make[A](f: A => String): ToSay[A] = new ToSay(f)
 
-  implicit val booleanToSay: ToSay[Boolean]     = new ToSay({
+  implicit val toSayBoolean: ToSay[Boolean]     = make {
     case true  => "Yes"
     case false => "No"
-  })
-  implicit val intToSay: ToSay[Int]             = new ToSay(_.toString)
-  implicit val stringToSay: ToSay[String]       = new ToSay(identity)
-  implicit val localDateToSay: ToSay[LocalDate] = ToSay { localDate =>
+  }
+  implicit val toSayInt: ToSay[Int]             = new ToSay(_.toString)
+  implicit val toSayString: ToSay[String]       = new ToSay(identity)
+  implicit val toSayLocalDate: ToSay[LocalDate] = ToSay { localDate =>
     localDate.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL))
   }
-  implicit val localTimeToSay: ToSay[LocalTime] =
+  implicit val toSayLocalTime: ToSay[LocalTime] =
     ToSay(_.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)))
 
   case class Said(override val toString: String) extends AnyVal
