@@ -24,6 +24,7 @@ object ToSay {
   }
   implicit val toSayLocalTime: ToSay[LocalTime] =
     ToSay(_.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)))
+  implicit val toSaySay: ToSay[CallTree.Say]    = new ToSay(_.text)
 
   case class Said(override val toString: String) extends AnyVal
   object Said {
