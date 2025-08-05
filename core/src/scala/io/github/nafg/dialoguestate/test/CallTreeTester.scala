@@ -125,17 +125,18 @@ object CallTreeTester {
           }
       def done(nextState: CallState, nodes: Node*)                                        =
         ZIO.succeed((Some(nextState), accNodes ++ nodes))
-      callTree match {
-        case sequence: CallTree.Sequence.WithContinuation => interpretSequenceWithContinuation(sequence)
-        case suspend: CallTree.Suspend                    => interpretSuspend(suspend)
-        case noCont: CallTree.NoContinuation              => ZIO.succeed((None, accNodes ++ toNodes(noCont)))
-        case record: CallTree.Record                      => done(CallState(record), Node.Record)
-        case record: CallTree.Record.Transcribed          => done(CallState(record), Node.Record)
-        case pay: CallTree.Pay                            => done(CallState(pay), Node.Pay)
-        case gather: CallTree.Gather.Base                 =>
-          val messageNodes = toNodes(gather.message)
-          done(CallState.AwaitingDigits(gather, messageNodes), messageNodes*)
-      }
+      ZIO.logTrace(s"Interpreting tree: $callTree") *>
+        (callTree match {
+          case sequence: CallTree.Sequence.WithContinuation => interpretSequenceWithContinuation(sequence)
+          case suspend: CallTree.Suspend                    => interpretSuspend(suspend)
+          case noCont: CallTree.NoContinuation              => ZIO.succeed((None, accNodes ++ toNodes(noCont)))
+          case record: CallTree.Record                      => done(CallState(record), Node.Record)
+          case record: CallTree.Record.Transcribed          => done(CallState(record), Node.Record)
+          case pay: CallTree.Pay                            => done(CallState(pay), Node.Pay)
+          case gather: CallTree.Gather.Base                 =>
+            val messageNodes = toNodes(gather.message)
+            done(CallState.AwaitingDigits(gather, messageNodes), messageNodes*)
+        })
     }
 
   @deprecated("Use CallTreeTester instead", "0.19.0")
