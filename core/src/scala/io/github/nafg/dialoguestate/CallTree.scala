@@ -38,20 +38,22 @@ object CallTree {
 
   val empty = Sequence.NoContinuationOnly(Nil)
 
-  def apply(trees: CallTree.NoContinuation*): CallTree.Sequence.NoContinuationOnly =
-    CallTree.Sequence.NoContinuationOnly(trees.toList)
+  def apply(trees: NoContinuation*): Sequence.NoContinuationOnly = fromSeq(trees)
 
-  def traverse[A](xs: Seq[A])(f: A => CallTree.NoContinuation): CallTree.Sequence.NoContinuationOnly =
-    CallTree.Sequence.NoContinuationOnly(xs.map(f).toList)
+  def fromSeq(xs: Seq[NoContinuation]): Sequence.NoContinuationOnly = Sequence.NoContinuationOnly(xs.toList)
 
-  def traverse[A](x: Option[A])(f: A => CallTree.NoContinuation): CallTree.Sequence.NoContinuationOnly =
-    traverse(x.toList)(f)
+  def fromOption(x: Option[NoContinuation]): NoContinuation = x.getOrElse(empty)
+  def fromOption(x: Option[HasContinuation]): CallTree      = x.getOrElse(empty)
 
-  def traverse[A](x: Option[A])(f: A => CallTree.HasContinuation): CallTree =
-    x match {
-      case Some(a) => f(a)
-      case None    => empty
-    }
+  def traverse[A](xs: Seq[A])(f: A => NoContinuation): Sequence.NoContinuationOnly =
+    Sequence.NoContinuationOnly(xs.map(f).toList)
+
+  class TraverseOptionPartiallyApplied[A] private[CallTree] (x: Option[A]) {
+    def apply(f: A => NoContinuation): NoContinuation = x.map(f).getOrElse(empty)
+    def apply(f: A => HasContinuation): CallTree      = x.map(f).getOrElse(empty)
+  }
+
+  def traverse[A](x: Option[A]): TraverseOptionPartiallyApplied[A] = new TraverseOptionPartiallyApplied(x)
 
   sealed trait NoContinuation extends CallTree {
     override def &:(that: NoContinuation): NoContinuation = (that, this) match {
