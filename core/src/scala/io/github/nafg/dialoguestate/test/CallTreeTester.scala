@@ -1,5 +1,7 @@
 package io.github.nafg.dialoguestate.test
 
+import java.util.concurrent.atomic.AtomicInteger
+
 import scala.annotation.tailrec
 import scala.io.AnsiColor
 
@@ -60,16 +62,14 @@ object CallTreeTester {
   private case class State(callState: CallState, accumulatedNodes: List[Node])
 
   /** Default CallInfo instance for testing */
-  val defaultCallInfo: CallInfo = CallInfo(callId = "test-call-id", from = "+15551234567", to = "+15559876543")
-
-  case class UnexpectedStateException(expectationDescription: String, actualState: CallState)
+  case class UnexpectedStateException(callId: String, expectationDescription: String, actualState: CallState)
       extends AssertionError(
-        s"Expected ${highlight(expectationDescription)} but got ${highlight(actualState.toString)}"
+        s"[$callId] Expected ${highlight(expectationDescription)} but got ${highlight(actualState.toString)}"
       )
 
-  case class MissingExpectedTextException(expectedText: String, actualNodes: Seq[Node])
+  case class MissingExpectedTextException(callId: String, expectedText: String, actualNodes: Seq[Node])
       extends AssertionError(
-        s"Expected to hear '${highlight(expectedText)}' but " +
+        s"[$callId] Expected to hear '${highlight(expectedText)}' but " +
           (if (actualNodes.isEmpty)
              "no nodes remain"
            else
@@ -106,7 +106,10 @@ object CallTreeTester {
     if (history.length > 1000)
       ZIO.fail(
         new RuntimeException(
-          "Possible infinite loop detected. CallTree stack: " + history.take(100).map("\n • " + _.toString)
+          s"[${callInfo.callId}] Possible infinite loop detected. CallTree stack: " +
+            history
+              .take(100)
+              .map("\n • " + _.toString)
         )
       )
     else {
@@ -148,15 +151,19 @@ object CallTreeTester {
     case class Found[A](matched: List[Node], remaining: List[Node], extracted: A) extends SearchState[A]
   }
 
+  private val idCounter = new AtomicInteger(1)
+
   /** Creates a new tester for the given CallTree */
-  def apply(callTree: CallTree, callInfo: CallInfo = defaultCallInfo): UIO[CallTreeTester] =
+  def apply(callTree: CallTree, from: String = "+15551234567", to: String = "+15559876543"): UIO[CallTreeTester] =
     for {
       stateRef <- Ref.make(State(CallState.Ready(callTree), Nil))
+      callInfo  = CallInfo(callId = s"test-call-info-${idCounter.getAndIncrement}", from = from, to = to)
     } yield new CallTreeTester(stateRef, callInfo)
 }
 
 /** Represents a tester for a CallTree program */
 class CallTreeTester private[CallTreeTester] (stateRef: Ref[CallTreeTester.State], callInfo: CallInfo) {
+  def callId = callInfo.callId
 
   /** Get the current state of the call */
   def currentState: UIO[CallTreeTester.CallState] = stateRef.get.map(_.callState)
@@ -184,8 +191,7 @@ class CallTreeTester private[CallTreeTester] (stateRef: Ref[CallTreeTester.State
         }
       }
 
-  /** Generic send method that handles different awaiting states
-    */
+  /** Generic send method that handles different awaiting states */
   private def sendToAwaitingState(expectedStateDescription: String)(
     extractHandler: PartialFunction[CallTreeTester.CallState, Task[CallTreeTester.CallState]]
   ): Task[CallTreeTester.CallState] =
@@ -194,39 +200,41 @@ class CallTreeTester private[CallTreeTester] (stateRef: Ref[CallTreeTester.State
         case CallTreeTester.CallState.Ready(_) =>
           advance *> sendToAwaitingState(expectedStateDescription)(extractHandler)
         case other                             =>
-          ZIO.fail(CallTreeTester.UnexpectedStateException(expectedStateDescription, other))
+          ZIO.fail(CallTreeTester.UnexpectedStateException(callId, expectedStateDescription, other))
       }
     }
 
   /** Expects that the call is waiting for digits and enters the specified digits
     */
-  def sendDigits(digits: String): Task[CallTreeTester.CallState] =
+  def sendDigits(digits: String): Task[CallTreeTester.CallState] = ZIO.logAnnotate("callId", callId) {
     sendToAwaitingState("AwaitingDigits state") { case CallTreeTester.CallState.AwaitingDigits(gather, _) =>
       CallTreeTester
         .evalCallback(callInfo, gather)(_.handle(digits))
         .tap(update)
     } <*
       ZIO.logInfo(s" 🔢 Sent digits: ${CallTreeTester.highlight(digits)}")
+  }
 
   /** Expects that the call is waiting for a recording and provides the specified recording result
     */
   def sendRecording(
     recordingURL: URL,
     terminator: Option[RecordingResult.Terminator] = None
-  ): Task[CallTreeTester.CallState] =
+  ): Task[CallTreeTester.CallState] = ZIO.logAnnotate("callId", callId) {
     sendToAwaitingState("AwaitingRecording state") { case CallTreeTester.CallState.AwaitingRecording(record) =>
       CallTreeTester
         .evalCallback(callInfo, record)(_.handle(recordingURL, terminator))
         .tap(update)
     } <*
       ZIO.logInfo(s" 🎤 Sent recording: ${CallTreeTester.highlight(recordingURL.encode)}")
+  }
 
   /** Expects that the call is waiting for a transcribed recording and provides the specified recording result */
   def sendTranscribedRecording(
     recordingURL: URL,
     transcriptionText: Option[String],
     terminator: Option[RecordingResult.Terminator] = None
-  ): Task[CallTreeTester.CallState] =
+  ): Task[CallTreeTester.CallState] = ZIO.logAnnotate("callId", callId) {
     sendToAwaitingState("AwaitingTranscribedRecording state") {
       case CallTreeTester.CallState.AwaitingTranscribedRecording(record) =>
         CallTreeTester
@@ -234,26 +242,31 @@ class CallTreeTester private[CallTreeTester] (stateRef: Ref[CallTreeTester.State
           .tap(update)
     } <*
       ZIO.logInfo(s" 🎤 Sent transcribed recording: ${CallTreeTester.highlight(recordingURL.encode)}")
+  }
 
   /** Expects that the call is waiting for payment and provides the specified payment result
     */
   def sendPayment(paymentResult: PaymentResult): Task[CallTreeTester.CallState] =
-    sendToAwaitingState("AwaitingPayment state") { case CallTreeTester.CallState.AwaitingPayment(pay) =>
-      CallTreeTester
-        .evalCallback(callInfo, pay)(_.handle(paymentResult))
-        .tap(update)
-    } <*
-      ZIO.logInfo(s" 💳 Sent payment info: ${CallTreeTester.highlight(paymentResult.toString)}")
+    ZIO.logAnnotate("callId", callId) {
+      sendToAwaitingState("AwaitingPayment state") { case CallTreeTester.CallState.AwaitingPayment(pay) =>
+        CallTreeTester
+          .evalCallback(callInfo, pay)(_.handle(paymentResult))
+          .tap(update)
+      } <*
+        ZIO.logInfo(s" 💳 Sent payment info: ${CallTreeTester.highlight(paymentResult.toString)}")
+    }
 
   /** Expects that the call has ended
     */
-  def expectEnded: Task[CallTreeTester.CallState] =
+  def expectEnded: Task[CallTreeTester.CallState] = ZIO.logAnnotate("callId", callId) {
     currentState.flatMap {
       case ended @ CallTreeTester.CallState.Ended => ZIO.succeed(ended)
       case CallTreeTester.CallState.Ready(_)      => advance *> expectEnded
-      case other => ZIO.fail(CallTreeTester.UnexpectedStateException("Ended state", other))
+      case other                                  =>
+        ZIO.fail(CallTreeTester.UnexpectedStateException(callId, "Ended state", other))
     } <*
       ZIO.logInfo(" 🏁 Call ended")
+  }
 
   /** Returns the text of the next `Say` for which `f` is defined.
     *
@@ -266,47 +279,49 @@ class CallTreeTester private[CallTreeTester] (stateRef: Ref[CallTreeTester.State
     *   return None. If it does consider the subset a match, it should return a tuple of two things: a value
     *   representing the search result, and the rest of the nodes after removing the result.
     */
-  private def search[A](description: String)(f: List[CallTreeTester.Node] => CallTreeTester.SearchState[A]): Task[A] = {
-    def processText(nodes: List[CallTreeTester.Node]): Task[CallTreeTester.SearchState.Found[A]] = {
-      @tailrec
-      def loop(currentNodes: List[CallTreeTester.Node]): Task[CallTreeTester.SearchState.Found[A]] =
-        f(currentNodes) match {
-          case CallTreeTester.SearchState.Found(matched, remaining, extracted) =>
-            ZIO.succeed(CallTreeTester.SearchState.Found(matched, remaining, extracted))
-          case CallTreeTester.SearchState.Continue                             =>
-            currentNodes match {
-              case head :: tail => loop(tail)
-              case Nil          => ZIO.fail(CallTreeTester.MissingExpectedTextException(description, nodes))
-            }
-        }
-      loop(nodes)
-    }
-
-    for {
-      state <- stateRef.get
-      found <- {
-        state.callState match {
-          case CallTreeTester.CallState.Ready(callTree)            =>
-            interpretTree(callTree, state.accumulatedNodes)
-              .flatMap { nextState =>
-                processText(nextState.accumulatedNodes)
-                  .tap { found =>
-                    update(nextState.copy(accumulatedNodes = found.remaining))
-                  }
+  private def search[A](description: String)(f: List[CallTreeTester.Node] => CallTreeTester.SearchState[A]): Task[A] =
+    ZIO.logAnnotate("callId", callId) {
+      def processText(nodes: List[CallTreeTester.Node]): Task[CallTreeTester.SearchState.Found[A]] = {
+        @tailrec
+        def loop(currentNodes: List[CallTreeTester.Node]): Task[CallTreeTester.SearchState.Found[A]] =
+          f(currentNodes) match {
+            case CallTreeTester.SearchState.Found(matched, remaining, extracted) =>
+              ZIO.succeed(CallTreeTester.SearchState.Found(matched, remaining, extracted))
+            case CallTreeTester.SearchState.Continue                             =>
+              currentNodes match {
+                case head :: tail => loop(tail)
+                case Nil          =>
+                  ZIO.fail(CallTreeTester.MissingExpectedTextException(callId, description, nodes))
               }
-          case _ if state.accumulatedNodes.nonEmpty                =>
-            processText(state.accumulatedNodes)
-          case CallTreeTester.CallState.AwaitingDigits(_, message) =>
-            processText(message)
-          case other                                               =>
-            ZIO.fail(CallTreeTester.UnexpectedStateException(s"to hear '$description'", other))
-        }
+          }
+        loop(nodes)
       }
-      _     <-
-        ZIO.logInfo(s""" 👂 Heard ${found.matched.map("\n • " + _).mkString}
-                       |   => Matched '${CallTreeTester.highlight(found.extracted.toString)}'""".stripMargin)
-    } yield found.extracted
-  }
+
+      for {
+        state <- stateRef.get
+        found <- {
+          state.callState match {
+            case CallTreeTester.CallState.Ready(callTree)            =>
+              interpretTree(callTree, state.accumulatedNodes)
+                .flatMap { nextState =>
+                  processText(nextState.accumulatedNodes)
+                    .tap { found =>
+                      update(nextState.copy(accumulatedNodes = found.remaining))
+                    }
+                }
+            case _ if state.accumulatedNodes.nonEmpty                =>
+              processText(state.accumulatedNodes)
+            case CallTreeTester.CallState.AwaitingDigits(_, message) =>
+              processText(message)
+            case other                                               =>
+              ZIO.fail(CallTreeTester.UnexpectedStateException(callId, s"to hear '$description'", other))
+          }
+        }
+        _     <-
+          ZIO.logInfo(s""" 👂 Heard ${found.matched.map("\n • " + _).mkString}
+                         |   => Matched '${CallTreeTester.highlight(found.extracted.toString)}'""".stripMargin)
+      } yield found.extracted
+    }
 
   def nextSayWith(text: String): Task[String] =
     search(text) {

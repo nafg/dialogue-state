@@ -76,9 +76,8 @@ object SuspendExampleTest extends ZIOSpecDefault {
             say"Hello caller from ${info.from} to ${info.to}"
           }
       }
-      val customCallInfo = CallInfo(callId = "test-123", from = "+15551234567", to = "+15559876543")
       for {
-        tester <- CallTreeTester(contextAwareSuspendTree, customCallInfo)
+        tester <- CallTreeTester(contextAwareSuspendTree, from = "+15551234567", to = "+15559876543")
         _      <- tester.expect("Hello caller from +15551234567 to +15559876543")
       } yield assertCompletes
     },
