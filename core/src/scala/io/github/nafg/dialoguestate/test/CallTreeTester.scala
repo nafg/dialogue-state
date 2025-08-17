@@ -102,7 +102,7 @@ object CallTreeTester {
     callTree: CallTree,
     accNodes: List[Node],
     history: List[CallTree] = Nil
-  ): RIO[CallInfo, (Option[CallState], List[Node])] =
+  ): Task[(Option[CallState], List[Node])] =
     if (history.length > 1000)
       ZIO.fail(
         new RuntimeException(
@@ -165,8 +165,7 @@ class CallTreeTester private[CallTreeTester] (stateRef: Ref[CallTreeTester.State
   private def update(state: CallTreeTester.State)         = stateRef.set(state).as(state.callState)
   private def update(callState: CallTreeTester.CallState) = stateRef.update(_.copy(callState = callState))
 
-  /** Advances the call to the next state
-    */
+  /** Advances the call to the next state */
   private def advance: Task[CallTreeTester.CallState] =
     stateRef.get
       .flatMap { state =>
@@ -174,7 +173,6 @@ class CallTreeTester private[CallTreeTester] (stateRef: Ref[CallTreeTester.State
           case CallTreeTester.CallState.Ready(callTree) =>
             interpretTree(callTree, state.accumulatedNodes)
               .flatMap(update)
-              .provide(ZLayer.succeed(callInfo))
           case other                                    =>
             ZIO.succeed(other)
         }
@@ -182,9 +180,9 @@ class CallTreeTester private[CallTreeTester] (stateRef: Ref[CallTreeTester.State
 
   /** Generic send method that handles different awaiting states
     */
-  private def sendToAwaitingState[R](expectedStateDescription: String)(
-    extractHandler: PartialFunction[CallTreeTester.CallState, RIO[R, CallTreeTester.CallState]]
-  ): RIO[R, CallTreeTester.CallState] =
+  private def sendToAwaitingState(expectedStateDescription: String)(
+    extractHandler: PartialFunction[CallTreeTester.CallState, Task[CallTreeTester.CallState]]
+  ): Task[CallTreeTester.CallState] =
     currentState.flatMap {
       extractHandler.orElse {
         case CallTreeTester.CallState.Ready(_) =>
@@ -264,7 +262,7 @@ class CallTreeTester private[CallTreeTester] (stateRef: Ref[CallTreeTester.State
     */
   private def search[A](
     description: String
-  )(f: List[CallTreeTester.Node] => Option[(A, List[CallTreeTester.Node])]): RIO[CallInfo, A] = {
+  )(f: List[CallTreeTester.Node] => Option[(A, List[CallTreeTester.Node])]): Task[A] = {
     def processText(nodes: List[CallTreeTester.Node]): Task[(A, List[CallTreeTester.Node])] = {
       @tailrec
       def loop(currentNodes: List[CallTreeTester.Node]): Task[(A, List[CallTreeTester.Node])] =
@@ -313,7 +311,6 @@ class CallTreeTester private[CallTreeTester] (stateRef: Ref[CallTreeTester.State
       case _                                      =>
         None
     }
-      .provide(ZLayer.succeed(callInfo))
 
   /** Expects that the call will say the given text, automatically advancing if needed
     */
@@ -330,7 +327,7 @@ class CallTreeTester private[CallTreeTester] (stateRef: Ref[CallTreeTester.State
   private val pressRegex = s"Press (\\d+) .*".r
 
   def choose(option: String): Task[CallTreeTester.CallState] =
-    (for {
+    for {
       key <- search(s"Menu option $option") {
                case CallTreeTester.Node.Say(pressRegex(num)) :: CallTreeTester.Node.Say(s) :: others
                    if s.contains(option) =>
@@ -338,6 +335,5 @@ class CallTreeTester private[CallTreeTester] (stateRef: Ref[CallTreeTester.State
                case _ => None
              }
       res <- sendDigits(key)
-    } yield res)
-      .provide(ZLayer.succeed(callInfo))
+    } yield res
 }
