@@ -142,6 +142,12 @@ object CallTreeTester {
   @deprecated("Use CallTreeTester instead", "0.19.0")
   type Tester = CallTreeTester
 
+  sealed trait SearchState[+A]
+  object SearchState {
+    case object Continue                                                          extends SearchState[Nothing]
+    case class Found[A](matched: List[Node], remaining: List[Node], extracted: A) extends SearchState[A]
+  }
+
   /** Creates a new tester for the given CallTree */
   def apply(callTree: CallTree, callInfo: CallInfo = defaultCallInfo): UIO[CallTreeTester] =
     for {
@@ -260,15 +266,14 @@ class CallTreeTester private[CallTreeTester] (stateRef: Ref[CallTreeTester.State
     *   return None. If it does consider the subset a match, it should return a tuple of two things: a value
     *   representing the search result, and the rest of the nodes after removing the result.
     */
-  private def search[A](
-    description: String
-  )(f: List[CallTreeTester.Node] => Option[(A, List[CallTreeTester.Node])]): Task[A] = {
-    def processText(nodes: List[CallTreeTester.Node]): Task[(A, List[CallTreeTester.Node])] = {
+  private def search[A](description: String)(f: List[CallTreeTester.Node] => CallTreeTester.SearchState[A]): Task[A] = {
+    def processText(nodes: List[CallTreeTester.Node]): Task[CallTreeTester.SearchState.Found[A]] = {
       @tailrec
-      def loop(currentNodes: List[CallTreeTester.Node]): Task[(A, List[CallTreeTester.Node])] =
+      def loop(currentNodes: List[CallTreeTester.Node]): Task[CallTreeTester.SearchState.Found[A]] =
         f(currentNodes) match {
-          case Some((matching, remnant)) => ZIO.succeed((matching, remnant))
-          case None                      =>
+          case CallTreeTester.SearchState.Found(matched, remaining, extracted) =>
+            ZIO.succeed(CallTreeTester.SearchState.Found(matched, remaining, extracted))
+          case CallTreeTester.SearchState.Continue                             =>
             currentNodes match {
               case head :: tail => loop(tail)
               case Nil          => ZIO.fail(CallTreeTester.MissingExpectedTextException(description, nodes))
@@ -278,38 +283,47 @@ class CallTreeTester private[CallTreeTester] (stateRef: Ref[CallTreeTester.State
     }
 
     for {
-      state    <- stateRef.get
-      matching <- state.callState match {
-                    case CallTreeTester.CallState.Ready(callTree)            =>
-                      interpretTree(callTree, state.accumulatedNodes)
-                        .flatMap { nextState =>
-                          processText(nextState.accumulatedNodes)
-                            .flatMap { case (matching, rest) =>
-                              update(nextState.copy(accumulatedNodes = rest))
-                                .as(matching)
-                            }
-                        }
-                    case _ if state.accumulatedNodes.nonEmpty                =>
-                      processText(state.accumulatedNodes).map(_._1)
-                    case CallTreeTester.CallState.AwaitingDigits(_, message) =>
-                      processText(message).map(_._1)
-                    case other                                               =>
-                      ZIO.fail(CallTreeTester.UnexpectedStateException(s"to hear '$description'", other))
+      state <- stateRef.get
+      found <- {
+        state.callState match {
+          case CallTreeTester.CallState.Ready(callTree)            =>
+            interpretTree(callTree, state.accumulatedNodes)
+              .flatMap { nextState =>
+                processText(nextState.accumulatedNodes)
+                  .tap { found =>
+                    update(nextState.copy(accumulatedNodes = found.remaining))
                   }
-      _        <- ZIO.logInfo(s" 👂 Heard '${CallTreeTester.highlight(matching.toString)}'")
-    } yield matching
+              }
+          case _ if state.accumulatedNodes.nonEmpty                =>
+            processText(state.accumulatedNodes)
+          case CallTreeTester.CallState.AwaitingDigits(_, message) =>
+            processText(message)
+          case other                                               =>
+            ZIO.fail(CallTreeTester.UnexpectedStateException(s"to hear '$description'", other))
+        }
+      }
+      _     <-
+        ZIO.logInfo(s""" 👂 Heard ${found.matched.map("\n • " + _).mkString}
+                       |   => Matched '${CallTreeTester.highlight(found.extracted.toString)}'""".stripMargin)
+    } yield found.extracted
   }
 
   def nextSayWith(text: String): Task[String] =
     search(text) {
       case CallTreeTester.Node.Say(say) :: others =>
         val i = say.indexOf(text)
-        Option.unless(i < 0) {
-          val remnant = say.drop(i + text.length)
-          say -> (if (remnant.isEmpty) others else CallTreeTester.Node.Say(remnant) :: others)
+        if (i < 0)
+          CallTreeTester.SearchState.Continue
+        else {
+          val (incl, remnant) = say.splitAt(i + text.length)
+          CallTreeTester.SearchState.Found(
+            matched = List(CallTreeTester.Node.Say(incl)),
+            remaining = if (remnant.isEmpty) others else CallTreeTester.Node.Say(remnant) :: others,
+            extracted = say
+          )
         }
       case _                                      =>
-        None
+        CallTreeTester.SearchState.Continue
     }
 
   /** Expects that the call will say the given text, automatically advancing if needed
@@ -329,10 +343,12 @@ class CallTreeTester private[CallTreeTester] (stateRef: Ref[CallTreeTester.State
   def choose(option: String): Task[CallTreeTester.CallState] =
     for {
       key <- search(s"Menu option $option") {
-               case CallTreeTester.Node.Say(pressRegex(num)) :: CallTreeTester.Node.Say(s) :: others
-                   if s.contains(option) =>
-                 Some((num, others))
-               case _ => None
+               case (withNum @ CallTreeTester.Node.Say(pressRegex(num))) ::
+                   (withOption @ CallTreeTester.Node.Say(s)) ::
+                   others if s.contains(option) =>
+                 CallTreeTester.SearchState.Found(List(withNum, withOption), others, num)
+               case _ =>
+                 CallTreeTester.SearchState.Continue
              }
       res <- sendDigits(key)
     } yield res
