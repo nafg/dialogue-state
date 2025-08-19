@@ -279,7 +279,7 @@ class CallTreeTester private[CallTreeTester] (stateRef: Ref[CallTreeTester.State
     *   return None. If it does consider the subset a match, it should return a tuple of two things: a value
     *   representing the search result, and the rest of the nodes after removing the result.
     */
-  private def search[A](description: String)(f: List[CallTreeTester.Node] => CallTreeTester.SearchState[A]): Task[A] =
+  def search[A](description: String)(f: List[CallTreeTester.Node] => CallTreeTester.SearchState[A]): Task[A] =
     ZIO.logAnnotate("callId", callId) {
       def processText(nodes: List[CallTreeTester.Node]): Task[CallTreeTester.SearchState.Found[A]] = {
         @tailrec
