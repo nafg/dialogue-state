@@ -305,14 +305,14 @@ class CallTreeTester private[CallTreeTester] (stateRef: Ref[CallTreeTester.State
               interpretTree(callTree, state.accumulatedNodes)
                 .flatMap { nextState =>
                   processText(nextState.accumulatedNodes)
-                    .tap { found =>
-                      update(nextState.copy(accumulatedNodes = found.remaining))
-                    }
+                    .tap(found => update(nextState.copy(accumulatedNodes = found.remaining)))
                 }
             case _ if state.accumulatedNodes.nonEmpty                =>
               processText(state.accumulatedNodes)
+                .tap(found => update(state.copy(accumulatedNodes = found.remaining)))
             case CallTreeTester.CallState.AwaitingDigits(_, message) =>
               processText(message)
+                .tap(found => update(state.copy(accumulatedNodes = found.remaining)))
             case other                                               =>
               ZIO.fail(CallTreeTester.UnexpectedStateException(callId, s"to hear '$description'", other))
           }
