@@ -5,7 +5,7 @@ jvm:
 projects:
   dialogue-state-core:
     dependencies:
-    - com.lihaoyi::sourcecode:0.4.2
+    - com.lihaoyi::sourcecode:0.4.4
     - dev.zio::zio-http:3.4.0
     extends: template-cross-all
     folder: ./core
