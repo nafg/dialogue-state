@@ -6,7 +6,7 @@ projects:
   dialogue-state-core:
     dependencies:
     - com.lihaoyi::sourcecode:0.4.4
-    - dev.zio::zio-http:3.4.0
+    - dev.zio::zio-http:3.5.0
     extends: template-cross-all
     folder: ./core
   dialogue-state-core-test:
