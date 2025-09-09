@@ -100,9 +100,56 @@ object CallTree {
   case class Play(url: URL) extends CallTree.NoContinuation
 
   sealed abstract class Pay(val tokenType: String, val description: String) extends CallTree.HasContinuation {
+    def prompts: Map[Pay.Prompt, NoContinuation] = Map.empty
+
     def handle(paymentResult: PaymentResult): Callback
   }
   object Pay {
+    case class Prompt(
+      `for`: Option[Prompt.For] = None,
+      cardTypes: Set[Prompt.CardType] = Set.empty,
+      attempt: Option[Int] = None,
+      requireMatchingInputs: Boolean = false,
+      errorType: Set[Prompt.ErrorType] = Set.empty
+    )
+    object Prompt {
+      sealed abstract class For(val value: String)
+      object For {
+        case object PaymentCardNumber extends For("payment-card-number")
+        case object ExpirationDate    extends For("expiration-date")
+        case object SecurityCode      extends For("security-code")
+        case object PostalCode        extends For("postal-code")
+        case object BankRoutingNumber extends For("bank-routing-number")
+        case object BankAccountNumber extends For("bank-account-number")
+        case object PaymentProcessing extends For("payment-processing")
+      }
+
+      sealed abstract class CardType(val value: String)
+      object CardType {
+        case object Visa       extends CardType("visa")
+        case object MasterCard extends CardType("mastercard")
+        case object Amex       extends CardType("amex")
+        case object Maestro    extends CardType("maestro")
+        case object Discover   extends CardType("discover")
+        case object Optima     extends CardType("optima")
+        case object JCB        extends CardType("jcb")
+        case object DinersClub extends CardType("diners-club")
+        case object Enroute    extends CardType("enroute")
+      }
+
+      sealed abstract class ErrorType(val value: String)
+      object ErrorType {
+        case object Timeout                  extends ErrorType("timeout")
+        case object InvalidCardNumber        extends ErrorType("invalid-card-number")
+        case object InvalidCardType          extends ErrorType("invalid-card-type")
+        case object InvalidDate              extends ErrorType("invalid-date")
+        case object InvalidSecurityCode      extends ErrorType("invalid-security-code")
+        case object InvalidBankRoutingNumber extends ErrorType("invalid-bank-routing-number")
+        case object InvalidBankAccountNumber extends ErrorType("invalid-bank-account-number")
+        case object InputMatchingFailed      extends ErrorType("input-matching-failed")
+      }
+    }
+
     abstract class OneTime(description: String)       extends Pay("one-time", description)
     abstract class Reusable(description: String)      extends Pay("reusable", description)
     abstract class PaymentMethod(description: String) extends Pay("payment-method", description)

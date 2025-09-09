@@ -51,7 +51,7 @@ private object Tags {
           recordingStatusCallback := recordingStatusCB.encode,
           action                  := baseUrl.encode
         )
-      case Node.Pay(_, _, _)                                               =>
+      case _: Node.Pay                                                     =>
         throw new UnsupportedOperationException("Payment processing not supported by Telnyx")
     }
 

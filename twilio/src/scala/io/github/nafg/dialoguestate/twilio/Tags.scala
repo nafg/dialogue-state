@@ -1,7 +1,7 @@
 package io.github.nafg.dialoguestate.twilio
 
-import io.github.nafg.dialoguestate.twilio.base.TagsBundle.*
 import io.github.nafg.dialoguestate.twilio.base.Node
+import io.github.nafg.dialoguestate.twilio.base.TagsBundle.*
 
 import scalatags.Text.TypedTag
 
@@ -32,6 +32,13 @@ private object Tags {
   val tokenType        = attr("tokenType")
   val paymentConnector = attr("paymentConnector")
 
+  val Prompt                = TypedTag[String]("Prompt", modifiers = Nil, void = false)
+  val `for`                 = attr("for")
+  val cardType              = attr("cardType")
+  val attempt               = attr("attempt")
+  val requireMatchingInputs = attr("requireMatchingInputs")
+  val errorType             = attr("errorType")
+
   val Redirect = TypedTag[String]("Redirect", modifiers = Nil, void = false)
 
   val Response = TypedTag[String]("Response", modifiers = Nil, void = false)
@@ -40,8 +47,16 @@ private object Tags {
     node match {
       case Node.Pause(len)                                                => Pause(length := len)()
       case Node.Play(url)                                                 => Play(url.encode)
-      case Node.Pay(connector, desc, tokType)                             =>
-        Pay(description := desc, connector.map(paymentConnector := _), tokenType := tokType)
+      case pay @ Node.Pay(connector, desc, tokType)                       =>
+        Pay(description := desc, connector.map(paymentConnector := _), tokenType := tokType)(pay.children.map { prompt =>
+          Prompt(
+            prompt.`for`.map(`for` := _),
+            prompt.cardTypes.headOption.map(cardType := _),
+            prompt.attempt.map(attempt := _),
+            if (prompt.requireMatchingInputs) requireMatchingInputs := "true" else modifier(),
+            prompt.errorType.headOption.map(errorType := _)
+          )(prompt.children.map(fromNode))
+        }*)
       case Node.Redirect(url)                                             => Redirect(url.encode)
       case Node.Say(text, v)                                              => Say(voice := v.value, text)
       case gather @ Node.Gather(actionOnEmpty, finishOn, maxLen, to)      =>
