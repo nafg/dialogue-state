@@ -29,8 +29,9 @@ private object Tags {
 
   val Pay              = TypedTag[String]("Pay", modifiers = Nil, void = false)
   val description      = attr("description")
-  val tokenType        = attr("tokenType")
+  val maxAttempts      = attr("maxAttempts")
   val paymentConnector = attr("paymentConnector")
+  val tokenType        = attr("tokenType")
 
   val Prompt                = TypedTag[String]("Prompt", modifiers = Nil, void = false)
   val `for`                 = attr("for")
@@ -45,10 +46,16 @@ private object Tags {
 
   def fromNode(node: Node): Tag =
     node match {
-      case Node.Pause(len)                                                => Pause(length := len)()
-      case Node.Play(url)                                                 => Play(url.encode)
-      case pay @ Node.Pay(connector, desc, tokType)                       =>
-        Pay(description := desc, connector.map(paymentConnector := _), tokenType := tokType)(pay.children.map { prompt =>
+      case Node.Pause(len)                                                      => Pause(length := len)()
+      case Node.Play(url)                                                       => Play(url.encode)
+      case pay @ Node.Pay(desc, payMaxAttempts, connector, payTimeout, tokType) =>
+        Pay(
+          description := desc,
+          connector.map(paymentConnector := _),
+          tokenType   := tokType,
+          payTimeout.map(timeout := _),
+          payMaxAttempts.map(maxAttempts := _)
+        )(pay.children.map { prompt =>
           Prompt(
             prompt.`for`.map(`for` := _),
             prompt.cardTypes.headOption.map(cardType := _),
@@ -57,16 +64,16 @@ private object Tags {
             prompt.errorType.headOption.map(errorType := _)
           )(prompt.children.map(fromNode))
         }*)
-      case Node.Redirect(url)                                             => Redirect(url.encode)
-      case Node.Say(text, v)                                              => Say(voice := v.value, text)
-      case gather @ Node.Gather(actionOnEmpty, finishOn, maxLen, to)      =>
+      case Node.Redirect(url)                                                   => Redirect(url.encode)
+      case Node.Say(text, v)                                                    => Say(voice := v.value, text)
+      case gather @ Node.Gather(actionOnEmpty, finishOn, maxLen, to)            =>
         Gather(
           actionOnEmptyResult := actionOnEmpty,
           finishOnKey         := finishOn.mkString,
           maxLen.map(numDigits := _),
           timeout             := to
         )(gather.children.map(fromNode): _*)
-      case Node.Record(finishOn, maxLen, recordingStatusCB, transcribeCB) =>
+      case Node.Record(finishOn, maxLen, recordingStatusCB, transcribeCB)       =>
         Record(
           maxLen.map(maxLength := _),
           finishOnKey             := finishOn.mkString,

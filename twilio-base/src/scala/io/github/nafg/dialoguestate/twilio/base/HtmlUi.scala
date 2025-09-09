@@ -16,9 +16,9 @@ object HtmlUi {
       yield <.input(^.`type` := "hidden", ^.name := k, ^.value := vv)()
 
   def fromNode(node: Node, info: CallInfo): Frag = node match {
-    case Node.Pause(length)                                 => <.span("-" * length)
-    case Node.Play(url)                                     => <.audio(^.src := url.encode, ^.controls := true)
-    case Node.Pay(paymentConnector, description, tokenType) =>
+    case Node.Pause(length)      => <.span("-" * length)
+    case Node.Play(url)          => <.audio(^.src := url.encode, ^.controls := true)
+    case Node.Pay(_, _, _, _, _) =>
       frag(
         <.form(
           <.input(^.tpe := "hidden", ^.name := "Result", ^.value       := "success"),
@@ -34,8 +34,8 @@ object HtmlUi {
           <.button(^.`type` := "submit")("Submit payment error")
         )
       )
-    case Node.Redirect(url) => <.a(^.href := url.addQueryParams(callParams(info)).encode)("Redirect")
-    case Node.Say(text, voice)                              => <.p(text)
+    case Node.Redirect(url)      => <.a(^.href := url.addQueryParams(callParams(info)).encode)("Redirect")
+    case Node.Say(text, voice)   => <.p(text)
     case gather @ Node.Gather(actionOnEmptyResult, finishOnKey, numDigits, timeout) =>
       def childTags(children: List[Node.Gather.Child]): List[Tag] = children match {
         case Nil                                                                                   => Nil
