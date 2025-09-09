@@ -100,7 +100,9 @@ object CallTree {
   case class Play(url: URL) extends CallTree.NoContinuation
 
   sealed abstract class Pay(val tokenType: String, val description: String) extends CallTree.HasContinuation {
+    def maxAttempts: Option[Int]                 = None
     def prompts: Map[Pay.Prompt, NoContinuation] = Map.empty
+    def timeout: Option[Int]                     = None
 
     def handle(paymentResult: PaymentResult): Callback
   }

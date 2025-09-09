@@ -8,7 +8,13 @@ sealed trait Node
 object Node {
   case class Pause(length: Int = 1) extends Node with Gather.Child with Pay.Prompt.Child
   case class Play(url: URL)         extends Node with Gather.Child with Pay.Prompt.Child
-  case class Pay(paymentConnector: Option[String], description: String, tokenType: String)(val children: Pay.Prompt*)
+  case class Pay(
+    description: String,
+    maxAttempts: Option[Int] = None,
+    paymentConnector: Option[String],
+    timeout: Option[Int] = None,
+    tokenType: String
+  )(val children: Pay.Prompt*)
       extends Node
   object Pay {
     case class Prompt(
