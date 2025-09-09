@@ -70,12 +70,13 @@ abstract class TwilioBaseCallStateServer(
       to     <- params.queryZIO[String]("To")
     } yield CallInfo(callId = callId, from = from, to = to)
 
-  private def toNodes(noCont: CallTree.NoContinuation): List[Node.Gather.Child] = noCont match {
-    case CallTree.Pause(length)                      => List(Node.Pause(length.toSeconds.toInt))
-    case CallTree.Say(text)                          => List(Node.Say(text, voice))
-    case CallTree.Play(url)                          => List(Node.Play(url))
-    case CallTree.Sequence.NoContinuationOnly(elems) => elems.flatMap(toNodes)
-  }
+  protected def toNodes(noCont: CallTree.NoContinuation): List[Node.Gather.Child & Node.Pay.Prompt.Child] =
+    noCont match {
+      case CallTree.Pause(length)                      => List(Node.Pause(length.toSeconds.toInt))
+      case CallTree.Say(text)                          => List(Node.Say(text, voice))
+      case CallTree.Play(url)                          => List(Node.Play(url))
+      case CallTree.Sequence.NoContinuationOnly(elems) => elems.flatMap(toNodes)
+    }
 
   protected def toNode(record: CallTree.Record.Transcribed) =
     Node.Record(

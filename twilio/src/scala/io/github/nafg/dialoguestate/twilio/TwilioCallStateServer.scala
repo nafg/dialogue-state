@@ -22,7 +22,18 @@ class TwilioCallStateServer(
       requestVerificationMiddlewareService = requestVerificationMiddlewareService
     ) {
   override protected def toNode(pay: CallTree.Pay): Node.Pay =
-    Node.Pay(paymentConnector = paymentConnector, description = pay.description, tokenType = pay.tokenType)
+    Node.Pay(paymentConnector = paymentConnector, description = pay.description, tokenType = pay.tokenType)(
+      pay.prompts.toSeq.map {
+        case (CallTree.Pay.Prompt(_for, cardTypes, attempt, requireMatchingInputs, errorType), children) =>
+          Node.Pay.Prompt(
+            `for` = _for.map(_.value),
+            cardTypes = cardTypes.map(_.value),
+            attempt = attempt,
+            requireMatchingInputs = requireMatchingInputs,
+            errorType = errorType.map(_.value)
+          )(toNodes(children)*)
+      }*
+    )
 
   private val expirationFormatter = DateTimeFormatter.ofPattern("MMyy")
 
