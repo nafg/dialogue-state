@@ -1,0 +1,25 @@
+# The queue must check pull requests in place (on the pull request itself) for
+# update_method to apply; otherwise Mergify tests a draft pull request and merges
+# the original un-rebased. In-place checks require max_parallel_checks: 1 and
+# the CI condition in queue_conditions, with no separate merge_conditions.
+merge_queue:
+  max_parallel_checks: 1
+
+queue_rules:
+  - name: default
+    queue_conditions:
+      - check-success = Compile
+    # Semi-linear history: rebase the PR onto master, then merge it with a merge commit
+    update_method: rebase
+    # GitHub only lets Mergify update a pull request created by another GitHub App
+    # (Renovate) by impersonating a user
+    update_bot_account: nafg
+    merge_method: merge
+
+pull_request_rules:
+  - name: Queue Renovate pull requests
+    conditions:
+      - author = renovate[bot]
+    actions:
+      queue:
+        name: default
