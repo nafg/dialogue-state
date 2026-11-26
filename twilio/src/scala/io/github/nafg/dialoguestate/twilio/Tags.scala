@@ -72,7 +72,7 @@ private object Tags {
           finishOnKey         := finishOn.mkString,
           maxLen.map(numDigits := _),
           timeout             := to
-        )(gather.children.map(fromNode): _*)
+        )(gather.children.map(fromNode)*)
       case Node.Record(finishOn, maxLen, recordingStatusCB, transcribeCB)       =>
         Record(
           maxLen.map(maxLength := _),
