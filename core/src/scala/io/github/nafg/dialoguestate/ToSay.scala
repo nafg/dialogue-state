@@ -32,7 +32,7 @@ object ToSay {
   }
 
   case class Interpolator(stringContext: StringContext) extends AnyVal {
-    def say(args: Said*): CallTree.Say = CallTree.Say(stringContext.s(args: _*))
+    def say(args: Said*): CallTree.Say = CallTree.Say(stringContext.s(args*))
   }
 
   implicit def interpolator(sc: StringContext): Interpolator = Interpolator(sc)

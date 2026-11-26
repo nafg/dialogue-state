@@ -27,7 +27,7 @@ This project uses **Bleep** (not sbt). All commands use `bleep` instead of `sbt`
 
 ### Cross-Compilation
 
-Projects are cross-compiled for Scala 2.13.16 and 3.3.6. Specify a version with `@scala2` or `@scala3` suffix:
+Projects are cross-compiled for Scala 2.13.16 and 3.9.0. Specify a version with `@scala2` or `@scala3` suffix:
 
 - `bleep test twilio-test@scala3`
 - `bleep compile dialogue-state-core@scala2`
