@@ -187,8 +187,8 @@ object TwilioBaseCallStateServer {
         params =>
           (for {
             callSid      <- params.query[String]("CallSid")
-            succeeded    <- params.query("RecordingStatus")(statusSchema)
-            recordingUrl <- if (succeeded) params.query("RecordingUrl")(urlSchema).map(Some(_)) else Right(None)
+            succeeded    <- params.query("RecordingStatus")(using statusSchema)
+            recordingUrl <- if (succeeded) params.query("RecordingUrl")(using urlSchema).map(Some(_)) else Right(None)
           } yield RecordingStatus(callSid, recordingUrl)).left.map(_.message),
         {
           case RecordingStatus(callSid, None)               =>
@@ -210,8 +210,8 @@ object TwilioBaseCallStateServer {
         params =>
           (for {
             callSid           <- params.query[String]("CallSid")
-            url               <- params.query("RecordingUrl")(urlSchema)
-            succeeded         <- params.query("TranscriptionStatus")(statusSchema)
+            url               <- params.query("RecordingUrl")(using urlSchema)
+            succeeded         <- params.query("TranscriptionStatus")(using statusSchema)
             transcriptionText <- if (succeeded) params.query[String]("TranscriptionText").map(Some(_)) else Right(None)
           } yield TranscriptionStatus(callSid, url, transcriptionText)).left.map(_.message),
         {
